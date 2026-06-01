@@ -1,0 +1,119 @@
+import { Resend } from 'resend';
+
+const resend = new Resend(process.env.RESEND_API_KEY);
+
+// Absender aus verifizierter Domain (Resend). Fallback auf kitaluna-app.ch.
+const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'KitaLuna <noreply@kitaluna-app.ch>';
+
+export async function sendParentInvitationEmail(
+  parentEmail: string,
+  childFirstName: string,
+  tempPassword: string
+) {
+  try {
+    const completionUrl = `${process.env.NEXT_PUBLIC_APP_URL}/parent/complete-profile?email=${encodeURIComponent(parentEmail)}`;
+
+    const htmlContent = `
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 12px 12px 0 0; }
+        .content { background: #f9fafb; padding: 30px; border-radius: 0 0 12px 12px; }
+        .button { display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; margin: 20px 0; font-weight: bold; }
+        .code { background: white; border: 1px solid #ddd; padding: 15px; border-radius: 6px; font-family: monospace; margin: 15px 0; }
+        .footer { color: #999; font-size: 12px; margin-top: 20px; text-align: center; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>👋 Willkommen bei KitaLuna!</h1>
+        </div>
+        <div class="content">
+            <p>Hallo,</p>
+            <p>Ihr Kind <strong>${childFirstName}</strong> wurde in unser KiTA Management System registriert!</p>
+            
+            <h2>Nächste Schritte:</h2>
+            
+            <h3>1️⃣ Vollständigen Sie Ihr Profil</h3>
+            <p>Klicken Sie auf den Button unten, um Ihre persönlichen Daten einzugeben und ein sicheres Passwort zu wählen:</p>
+            <center>
+                <a href="${completionUrl}" class="button">Profil vervollständigen →</a>
+            </center>
+            
+            <h3>2️⃣ Temporäres Passwort</h3>
+            <p>Falls Sie den Link nicht funktioniert, können Sie sich mit folgendem Passwort einloggen:</p>
+            <div class="code">
+                <strong>Email:</strong> ${parentEmail}<br>
+                <strong>Passwort:</strong> ${tempPassword}<br>
+                <strong>URL:</strong> ${process.env.NEXT_PUBLIC_APP_URL}/auth/login
+            </div>
+            
+            <h3>3️⃣ Funktionen im Portal</h3>
+            <ul>
+                <li>📋 Tagesberichte - Tägliche Aktivitäten Ihres Kindes</li>
+                <li>📅 Zusatztage - Gebuchte Betreuungstage</li>
+                <li>💬 Nachrichten - Direkte Kommunikation mit der KiTA</li>
+                <li>🖼️ Fotos & Dokumente - Erinnerungen teilen</li>
+            </ul>
+            
+            <p style="margin-top: 30px;">Bei Fragen kontaktieren Sie bitte die KiTA direkt.</p>
+            <p>Viel Spaß im neuen Portal!</p>
+            
+            <p style="color: #999; font-size: 12px; margin-top: 30px;">
+                KitaLuna - Eltern Portal
+            </p>
+        </div>
+        <div class="footer">
+            <p>© 2026 KiTA Management Software. Alle Rechte vorbehalten.</p>
+        </div>
+    </div>
+</body>
+</html>
+    `;
+
+    const response = await resend.emails.send({
+      from: FROM_EMAIL,
+      to: parentEmail,
+      subject: `🎉 Willkommen! ${childFirstName} wurde registriert`,
+      html: htmlContent,
+    });
+
+    if (response.error) {
+      console.error(`📧 Resend lehnte Versand an ${parentEmail} ab:`, response.error);
+      throw new Error(response.error.message || 'Resend error');
+    }
+
+    console.log(`✅ Email sent to ${parentEmail}`, response.data);
+    return response;
+  } catch (error) {
+    console.error('📧 Email error:', error);
+    throw error;
+  }
+}
+
+export async function sendWelcomeEmail(parentEmail: string, firstName: string) {
+  try {
+    const response = await resend.emails.send({
+      from: FROM_EMAIL,
+      to: parentEmail,
+      subject: `Willkommen ${firstName}!`,
+      html: `
+        <h1>Willkommen bei KitaLuna</h1>
+        <p>Hallo ${firstName},</p>
+        <p>Ihr Profil wurde erfolgreich erstellt!</p>
+        <p>Sie können sich jetzt anmelden und die vollen Funktionen nutzen.</p>
+      `,
+    });
+
+    return response;
+  } catch (error) {
+    console.error('Email error:', error);
+    throw error;
+  }
+}

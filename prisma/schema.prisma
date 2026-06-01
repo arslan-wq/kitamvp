@@ -1,0 +1,683 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  KITA_LEITER
+  BETREUER
+  PARENT
+}
+
+enum Severity {
+  MILD
+  MODERATE
+  SEVERE
+}
+
+enum ContractStatus {
+  ACTIVE
+  INACTIVE
+  PENDING
+  TERMINATED
+}
+
+enum BillingStatus {
+  PENDING
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum ReportCategory {
+  MEAL
+  SLEEP
+  TOILET
+  BOTTLE
+  DIAPER
+  ACTIVITY
+  INCIDENT
+  NOTE
+}
+
+enum ActivityType {
+  EATING
+  DRINKING
+  CHANGING_DIAPER
+  SLEEPING
+  ACTIVITY
+  DISCUSSION
+  NOTE
+  HEALTH_ISSUE
+  TRIP
+  ABSENT
+  HOLIDAY
+  DRAWING
+}
+
+enum ExtraDayType {
+  FULL_DAY
+  MORNING_WITH_MEAL
+  MORNING_NO_MEAL
+  AFTERNOON_WITH_MEAL
+  AFTERNOON_NO_MEAL
+}
+
+enum BookingStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model User {
+  id         String     @id @default(cuid())
+  email      String     @unique
+  password   String
+  name       String
+  role       Role       @default(BETREUER)
+  kitaId     String?
+  kita       KiTA?      @relation(fields: [kitaId], references: [id])
+  locationId String?
+  location   Location?  @relation(fields: [locationId], references: [id])
+  shifts     Shift[]    @relation("UserShifts")
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  @@index([kitaId])
+  @@index([locationId])
+}
+
+model KiTA {
+  id             String          @id @default(cuid())
+  name           String
+  address        String
+  phone          String
+  email          String
+  maxChildren    Int             @default(30)
+  users          User[]
+  children       Child[]
+  activities     Activity[]      @relation("KiTAActivities")
+  documents      Document[]
+  contracts      Contract[]      @relation("KiTAContracts")
+  dailyReports   DailyReport[]   @relation("KiTAReports")
+  locations      Location[]      @relation("KiTALocations")
+  shifts         Shift[]         @relation("KiTAShifts")
+  billingRecords BillingRecord[] @relation("KiTABilling")
+  extraDays      ExtraDay[]      @relation("KiTAExtraDays")
+  cancellations  Cancellation[]  @relation("KiTACancellations")
+  bookings       Booking[]       @relation("KiTABookings")
+  mealPlans      MealPlan[]      @relation("KiTAMealPlans")
+  messageThreads MessageThread[] @relation("KiTAThreads")
+  announcements  Announcement[]  @relation("KiTAAnnouncements")
+  notifications  Notification[]  @relation("KiTANotifications")
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+}
+
+model Child {
+  id              String          @id @default(cuid())
+  firstName       String
+  lastName        String
+  birthDate       DateTime
+  kitaId          String
+  kita            KiTA            @relation(fields: [kitaId], references: [id])
+  locationId      String?
+  location        Location?       @relation(fields: [locationId], references: [id])
+  parents         Parent[]        @relation("ChildParents")
+  allergies       Allergy[]
+  schedules       Schedule[]
+  attendance      Attendance[]
+  activities      Activity[]      @relation("ChildActivities")
+  messageThreads  MessageThread[] @relation("ChildThreads")
+  documents       Document[]      @relation("ChildDocuments")
+  medicalRecord   MedicalRecord?  @relation("ChildMedical")
+  contracts       Contract[]      @relation("ChildContracts")
+  dailyReports    DailyReport[]   @relation("ChildReports")
+  billingRecords  BillingRecord[] @relation("ChildBilling")
+  extraDays       ExtraDay[]      @relation("ChildExtraDays")
+  cancellations   Cancellation[]  @relation("ChildCancellations")
+  bookings        Booking[]       @relation("ChildBookings")
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([kitaId])
+  @@index([locationId])
+}
+
+model Parent {
+  id            String                 @id @default(cuid())
+  email         String                 @unique
+  password      String
+  firstName     String
+  lastName      String
+  phone         String
+  children      Child[]                @relation("ChildParents")
+  deviceTokens  ParentDeviceToken[]    @relation("ParentTokens")
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+}
+
+model ParentDeviceToken {
+  id        String    @id @default(cuid())
+  parentId  String
+  parent    Parent    @relation("ParentTokens", fields: [parentId], references: [id], onDelete: Cascade)
+  token     String    @unique // Firebase Cloud Messaging token
+  userAgent String?   // Device info (browser, OS, etc.)
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([parentId])
+  @@index([token])
+}
+
+model Schedule {
+  id        String   @id @default(cuid())
+  childId   String
+  child     Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
+  date      DateTime
+  startTime String   // HH:mm
+  endTime   String   // HH:mm
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([childId])
+  @@index([date])
+}
+
+model Attendance {
+  id            String    @id @default(cuid())
+  childId       String
+  child         Child     @relation(fields: [childId], references: [id], onDelete: Cascade)
+  date          DateTime
+  checkInTime   DateTime?
+  checkOutTime  DateTime?
+  checkedInBy   String?   // User ID
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([childId])
+  @@index([date])
+}
+
+model Activity {
+  id            String       @id @default(cuid())
+  childId       String
+  child         Child        @relation("ChildActivities", fields: [childId], references: [id], onDelete: Cascade)
+  kitaId        String
+  kita          KiTA         @relation("KiTAActivities", fields: [kitaId], references: [id], onDelete: Cascade)
+  type          ActivityType
+  timestamp     DateTime     // When the activity happened
+  details       String?      // Optional details (e.g., "200ml milk", "15 min sleep")
+  createdBy     String       // User ID (staff member)
+  notes         String?      // Additional notes
+  photoUrl      String?      // Optional photo URL (drawing, etc.)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@index([childId])
+  @@index([kitaId])
+  @@index([timestamp])
+  @@index([type])
+}
+
+model Allergy {
+  id        String   @id @default(cuid())
+  childId   String
+  child     Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
+  allergen  String
+  severity  Severity @default(MODERATE)
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([childId])
+}
+
+model MessageThread {
+  id          String   @id @default(cuid())
+  kitaId      String
+  kita        KiTA     @relation("KiTAThreads", fields: [kitaId], references: [id], onDelete: Cascade)
+  childId     String?  // NULL = general announcement/message
+  child       Child?   @relation("ChildThreads", fields: [childId], references: [id], onDelete: SetNull)
+
+  // Thread metadata
+  title       String?  // Optional title for the thread
+  startedBy   String   // User ID of thread starter
+  startedByName String
+  startedByRole String // BETREUER, KITA_LEITER, PARENT
+
+  // Thread state
+  isAnnouncement Boolean @default(false) // TRUE = broadcast to all parents
+  isResolved  Boolean @default(false)
+
+  // Messages in this thread
+  messages    Message[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([kitaId])
+  @@index([childId])
+  @@index([startedBy])
+}
+
+model Message {
+  id          String   @id @default(cuid())
+  threadId    String
+  thread      MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  // Parent/Reply structure
+  parentId    String?  // NULL = root message in thread, otherwise reply to this message
+  parent      Message? @relation("MessageReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies     Message[] @relation("MessageReplies")
+
+  // Sender information
+  senderId    String   // User or Parent ID
+  senderName  String
+  senderEmail String
+  senderRole  String   // BETREUER, KITA_LEITER, PARENT for visibility
+
+  // Content
+  content     String   // Markdown support
+  attachments String[] // URLs to storage (file attachments, images)
+
+  // Read status
+  readBy      String[] // User IDs who have read this message
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([threadId])
+  @@index([parentId])
+  @@index([senderId])
+}
+
+model Announcement {
+  id          String   @id @default(cuid())
+  kitaId      String
+  kita        KiTA     @relation("KiTAAnnouncements", fields: [kitaId], references: [id], onDelete: Cascade)
+
+  title       String
+  content     String   // Markdown support
+  attachments String[] // Optional files/images
+
+  createdBy   String   // User ID
+  createdByName String
+
+  // Visibility
+  isPublished Boolean @default(true)
+  targetAudience String @default("ALL") // ALL, PARENTS_ONLY, STAFF_ONLY
+
+  // Dates
+  publishedAt DateTime @default(now())
+  expiresAt   DateTime? // Auto-unpublish after this date
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([kitaId])
+  @@index([createdBy])
+}
+
+model Notification {
+  id          String   @id @default(cuid())
+  kitaId      String
+  kita        KiTA     @relation("KiTANotifications", fields: [kitaId], references: [id], onDelete: Cascade)
+
+  recipientId String   // User or Parent ID
+  type        String   // NEW_MESSAGE, ANNOUNCEMENT, REPLY
+  title       String
+  message     String
+
+  // Links back to source
+  threadId    String?
+  announcementId String?
+
+  // Status
+  isSent      Boolean @default(false)
+  sentVia     String? // EMAIL, PUSH, BOTH
+  readAt      DateTime?
+
+  createdAt   DateTime @default(now())
+
+  @@index([kitaId])
+  @@index([recipientId])
+  @@index([isSent])
+}
+
+model Document {
+  id         String    @id @default(cuid())
+  kitaId     String
+  kita       KiTA      @relation(fields: [kitaId], references: [id], onDelete: Cascade)
+  childId    String?   // NULL = shared for all children
+  child      Child?    @relation("ChildDocuments", fields: [childId], references: [id], onDelete: SetNull)
+  fileName   String
+  storageUrl String
+  uploadedBy String    // User ID
+  uploadedAt DateTime  @default(now())
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([kitaId])
+  @@index([childId])
+}
+
+model MedicalRecord {
+  id                String              @id @default(cuid())
+  childId           String              @unique
+  child             Child               @relation("ChildMedical", fields: [childId], references: [id], onDelete: Cascade)
+
+  // Chronic conditions and medications
+  medications       String[]            // JSON array of {name, dosage, notes}
+  conditions        String[]            // Chronic conditions
+  allergies         String[]            // Additional allergies (beyond the Allergy model)
+
+  // Doctor information
+  primaryDoctor     String?             // Doctor name
+  primaryDoctorPhone String?            // Doctor phone
+  primaryDoctorEmail String?            // Doctor email
+  primaryDoctorSpecialty String?        // Specialty (Kinderarzt, etc.)
+
+  // Pediatrician
+  pediatricianName  String?
+  pediatricianPhone String?
+  pediatricianEmail String?
+
+  // Emergency contact doctor
+  emergencyDoctor   String?
+  emergencyDoctorPhone String?
+
+  // Health tracking
+  bloodType         String?             // A+, A-, B+, B-, AB+, AB-, O+, O-
+  height            Float?              // cm
+  weight            Float?              // kg
+  lastCheckupDate   DateTime?
+  nextCheckupDate   DateTime?
+  emergencyInfo     String?             // Emergency notes
+
+  // Relations
+  vaccinations      Vaccination[]
+  healthHistory     HealthHistory[]
+
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  @@index([childId])
+}
+
+model Vaccination {
+  id                String              @id @default(cuid())
+  medicalRecordId   String
+  medicalRecord     MedicalRecord       @relation(fields: [medicalRecordId], references: [id], onDelete: Cascade)
+
+  // Vaccination details
+  vaccineName       String              // e.g., "MMR", "DPT", "Polio"
+  vaccineType       String?             // e.g., "Live attenuated", "Inactivated"
+  vaccinationDate   DateTime            // When was it given
+  nextDueDate       DateTime?           // When is next dose due
+  givenBy           String?             // Doctor/nurse name
+  location          String?             // Where was it given
+
+  // Batch and notes
+  batchNumber       String?             // Vaccine batch/lot number
+  notes             String?             // Additional notes or reactions
+
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  @@index([medicalRecordId])
+  @@index([vaccinationDate])
+}
+
+model HealthHistory {
+  id                String              @id @default(cuid())
+  medicalRecordId   String
+  medicalRecord     MedicalRecord       @relation(fields: [medicalRecordId], references: [id], onDelete: Cascade)
+
+  // Health event details
+  eventType         String              // e.g., "Illness", "Injury", "Allergy Reaction", "Surgery", "Hospital Visit"
+  condition         String              // e.g., "Measles", "Chicken Pox", "Broken Arm"
+  date              DateTime            // When did it happen
+  resolvedDate      DateTime?           // When was it resolved
+
+  // Treatment and notes
+  treatment         String?             // What treatment was given
+  doctorName        String?             // Which doctor treated
+  doctorNotes       String?             // Doctor's notes
+  parentNotes       String?             // Parent's notes
+
+  severity          String?             // "Mild", "Moderate", "Severe"
+  hospitalAdmitted  Boolean             @default(false)
+
+  // Follow-up
+  followUpNeeded    Boolean             @default(false)
+  followUpDate      DateTime?
+
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  @@index([medicalRecordId])
+  @@index([date])
+  @@index([eventType])
+}
+
+model Contract {
+  id              String           @id @default(cuid())
+  childId         String
+  child           Child            @relation("ChildContracts", fields: [childId], references: [id], onDelete: Cascade)
+  kitaId          String
+  kita            KiTA             @relation("KiTAContracts", fields: [kitaId], references: [id], onDelete: Cascade)
+  startDate       DateTime
+  endDate         DateTime?
+  status          ContractStatus   @default(ACTIVE)
+  monthlyRate     Float            // EUR per month
+  hoursPerWeek    Float            // Contractual hours
+  specialTerms    String?          // Any special conditions
+  signedBy        String?          // Parent ID
+  signedDate      DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@index([childId])
+  @@index([kitaId])
+}
+
+model DailyReport {
+  id              String            @id @default(cuid())
+  childId         String
+  child           Child             @relation("ChildReports", fields: [childId], references: [id], onDelete: Cascade)
+  kitaId          String
+  kita            KiTA              @relation("KiTAReports", fields: [kitaId], references: [id], onDelete: Cascade)
+  date            DateTime          // Date of report
+  createdBy       String            // User ID (staff member)
+
+  // Meals & Nutrition
+  meals           String[]          // JSON: [{type: "breakfast", consumed: true, notes: ""}]
+  extraBottles    Int               @default(0)
+  extraBottleNotes String?
+
+  // Sleep & Rest
+  sleepTime       String?           // HH:mm format
+  sleepDuration   Int?              // minutes
+
+  // Toileting
+  toiletVisits    Int               @default(0)
+  diaperChanges   Int               @default(0)
+
+  // Activities & Mood
+  activities      String[]          // JSON: [{name: "outdoor play", notes: ""}]
+  mood            String?           // happy, content, grumpy, etc.
+
+  // Health & Incidents
+  incidents       String[]          // JSON: [{type: "fall", description: "", treatment: ""}]
+  medications     String[]          // Administered medications
+
+  // General Notes
+  notes           String?           // Free-form daily notes
+
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@index([childId])
+  @@index([kitaId])
+  @@index([date])
+}
+
+model Location {
+  id              String    @id @default(cuid())
+  kitaId          String
+  kita            KiTA      @relation("KiTALocations", fields: [kitaId], references: [id], onDelete: Cascade)
+  name            String    // "Raum 1", "Gruppe A", etc.
+  capacity        Int       // Max children in this room
+  ageGroup        String?   // "0-2 years", "2-4 years", "3-6 years"
+  staff           String[]  // User IDs of assigned staff
+  users           User[]    // Staff assigned to this location
+  children        Child[]   // Children assigned to this location
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([kitaId, name])
+  @@index([kitaId])
+}
+
+model Shift {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation("UserShifts", fields: [userId], references: [id], onDelete: Cascade)
+  kitaId          String
+  kita            KiTA      @relation("KiTAShifts", fields: [kitaId], references: [id], onDelete: Cascade)
+  date            DateTime
+  startTime       String    // HH:mm format
+  endTime         String    // HH:mm format
+  roomId          String?   // Assigned room if applicable
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([kitaId])
+  @@index([date])
+}
+
+model BillingRecord {
+  id              String           @id @default(cuid())
+  childId         String
+  child           Child            @relation("ChildBilling", fields: [childId], references: [id], onDelete: Cascade)
+  kitaId          String
+  kita            KiTA             @relation("KiTABilling", fields: [kitaId], references: [id], onDelete: Cascade)
+  month           DateTime         // Month for billing
+  baseAmount      Float            // EUR
+  extraDays       Int              @default(0)
+  extraDaysCost   Float            @default(0) // EUR
+  deductions      Float            @default(0) // EUR (absences, etc)
+  totalAmount     Float
+  status          BillingStatus    @default(PENDING)
+  dueDate         DateTime?
+  paidDate        DateTime?
+  notes           String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@index([childId])
+  @@index([kitaId])
+  @@index([month])
+}
+
+model ExtraDay {
+  id              String         @id @default(cuid())
+  childId         String
+  child           Child          @relation("ChildExtraDays", fields: [childId], references: [id], onDelete: Cascade)
+  kitaId          String
+  kita            KiTA           @relation("KiTAExtraDays", fields: [kitaId], references: [id], onDelete: Cascade)
+  date            DateTime
+  type            ExtraDayType   // Booked meal type
+  actualType      ExtraDayType?  // Override by staff at check-in if different from booked
+  status          String         @default("REQUESTED") // REQUESTED, APPROVED, CANCELLED
+  notes           String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([childId])
+  @@index([kitaId])
+  @@index([date])
+}
+
+model Cancellation {
+  id              String    @id @default(cuid())
+  childId         String
+  child           Child     @relation("ChildCancellations", fields: [childId], references: [id], onDelete: Cascade)
+  kitaId          String
+  kita            KiTA      @relation("KiTACancellations", fields: [kitaId], references: [id], onDelete: Cascade)
+  date            DateTime
+  reason          String?
+  status          String    @default("PENDING") // PENDING, APPROVED, REJECTED
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([childId])
+  @@index([kitaId])
+  @@index([date])
+}
+
+// Anwesenheitsplanung: Eltern buchen einen Zeitraum (Tage bis Monate) mit
+// ausgewählten Wochentagen; das Muster wiederholt sich wöchentlich über den Zeitraum.
+// Personal (Admin/Leiter/Betreuer) nimmt an oder lehnt ab.
+model Booking {
+  id          String        @id @default(cuid())
+  childId     String
+  child       Child         @relation("ChildBookings", fields: [childId], references: [id], onDelete: Cascade)
+  kitaId      String
+  kita        KiTA          @relation("KiTABookings", fields: [kitaId], references: [id], onDelete: Cascade)
+  startDate   DateTime
+  endDate     DateTime
+  weekdays    Int[]         // 0=Sonntag ... 6=Samstag
+  dayType     ExtraDayType  @default(FULL_DAY) // Tagestyp / Mahlzeit-Option
+  status      BookingStatus @default(PENDING)
+  notes       String?
+  reviewedBy  String?       // User ID, der angenommen/abgelehnt hat
+  reviewedAt  DateTime?
+  createdBy   String        // Parent ID (oder User ID), der gebucht hat
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([childId])
+  @@index([kitaId])
+  @@index([status])
+  @@index([startDate])
+}
+
+model MealPlan {
+  id              String    @id @default(cuid())
+  kitaId          String
+  kita            KiTA      @relation("KiTAMealPlans", fields: [kitaId], references: [id], onDelete: Cascade)
+  weekStart       DateTime  // Start of week (Monday)
+  weekEnd         DateTime  // End of week (Sunday)
+
+  // Meal entries (JSON array of daily meals)
+  meals           String    // JSON: [{day: "Monday", breakfast: "Porridge", lunch: "Pasta", snack: "Fruit"}]
+
+  // Allergen information
+  allergenInfo    String?   // JSON: [{allergen: "Peanuts", details: "Contains traces"}]
+
+  // Metadata
+  uploadedBy      String    // User ID
+  fileName        String?   // Original filename
+  fileUrl         String?   // URL to uploaded file (if any)
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([kitaId])
+  @@index([weekStart])
+}

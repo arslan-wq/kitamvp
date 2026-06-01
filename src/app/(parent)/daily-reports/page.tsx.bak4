@@ -1,0 +1,216 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
+import { Card } from '@/components/Card';
+
+interface DailyReport {
+  id: string;
+  childId: string;
+  date: string;
+  meals: string[];
+  extraBottles: number;
+  extraBottleNotes?: string;
+  sleepTime?: string;
+  sleepDuration?: number;
+  toiletVisits: number;
+  diaperChanges: number;
+  activities: string[];
+  mood?: string;
+  incidents: string[];
+  notes?: string;
+}
+
+interface Child {
+  id: string;
+  firstName: string;
+  lastName: string;
+}
+
+export default function DailyReportsPage() {
+  const { status } = useSession();
+  const router = useRouter();
+  const [children, setChildren] = useState<Child[]>([]);
+  const [reports, setReports] = useState<DailyReport[]>([]);
+  const [selectedChildId, setSelectedChildId] = useState<string>('');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/auth/login');
+      return;
+    }
+
+    const fetchData = async () => {
+      try {
+        // Fetch children
+        const childRes = await fetch('/api/parent/children');
+        const childData = await childRes.json();
+        setChildren(childData);
+        if (childData.length > 0) {
+          setSelectedChildId(childData[0].id);
+        }
+      } catch (error) {
+        console.error('Error fetching children:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (status === 'authenticated') {
+      fetchData();
+    }
+  }, [status, router]);
+
+  useEffect(() => {
+    if (!selectedChildId) return;
+
+    const fetchReports = async () => {
+      try {
+        const res = await fetch(`/api/children/${selectedChildId}/daily-reports`);
+        const data = await res.json();
+        setReports(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error('Error fetching daily reports:', error);
+      }
+    };
+
+    fetchReports();
+  }, [selectedChildId]);
+
+  if (loading) return <div className="text-center py-8">Lädt...</div>;
+
+  const selectedChild = children.find(c => c.id === selectedChildId);
+  const childReports = reports.filter(r => r.childId === selectedChildId);
+
+  return (
+    <div className="max-w-4xl mx-auto">
+      <h1 className="text-3xl font-bold text-gray-900 mb-6">Tagesberichte</h1>
+
+      {children.length > 0 ? (
+        <>
+          <div className="mb-6">
+            <select
+              value={selectedChildId}
+              onChange={e => setSelectedChildId(e.target.value)}
+              className="w-full md:w-64 px-4 py-2 border border-gray-300 rounded"
+            >
+              {children.map(child => (
+                <option key={child.id} value={child.id}>
+                  {child.firstName} {child.lastName}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {childReports.length === 0 ? (
+            <Card>
+              <p className="text-gray-500 text-center py-8">
+                Noch keine Tagesberichte verfügbar für {selectedChild?.firstName}.
+              </p>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {childReports.map(report => (
+                <Card key={report.id} title={new Date(report.date).toLocaleDateString('de-DE')}>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    {/* Meals */}
+                    {report.meals && report.meals.length > 0 && (
+                      <div>
+                        <h4 className="font-semibold text-gray-900 mb-2">🍽️ Mahlzeiten</h4>
+                        <ul className="text-sm text-gray-600">
+                          {report.meals.map((meal, idx) => (
+                            <li key={idx}>• {meal}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Sleep */}
+                    {report.sleepDuration && (
+                      <div>
+                        <h4 className="font-semibold text-gray-900 mb-2">😴 Schlaf</h4>
+                        <p className="text-sm text-gray-600">
+                          {report.sleepDuration} min
+                          {report.sleepTime && ` (${report.sleepTime})`}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Toileting */}
+                    {(report.toiletVisits > 0 || report.diaperChanges > 0) && (
+                      <div>
+                        <h4 className="font-semibold text-gray-900 mb-2">🚽 Hygiene</h4>
+                        <p className="text-sm text-gray-600">
+                          WC: {report.toiletVisits} | Windeln: {report.diaperChanges}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Bottles */}
+                    {report.extraBottles > 0 && (
+                      <div>
+                        <h4 className="font-semibold text-gray-900 mb-2">🍼 Flaschen</h4>
+                        <p className="text-sm text-gray-600">
+                          {report.extraBottles}
+                          {report.extraBottleNotes && ` - ${report.extraBottleNotes}`}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Activities */}
+                    {report.activities && report.activities.length > 0 && (
+                      <div>
+                        <h4 className="font-semibold text-gray-900 mb-2">🎨 Aktivitäten</h4>
+                        <ul className="text-sm text-gray-600">
+                          {report.activities.map((activity, idx) => (
+                            <li key={idx}>• {activity}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Mood */}
+                    {report.mood && (
+                      <div>
+                        <h4 className="font-semibold text-gray-900 mb-2">😊 Stimmung</h4>
+                        <p className="text-sm text-gray-600">{report.mood}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Incidents */}
+                  {report.incidents && report.incidents.length > 0 && (
+                    <div className="mt-4 pt-4 border-t">
+                      <h4 className="font-semibold text-yellow-700 mb-2">⚠️ Vorfälle</h4>
+                      <ul className="text-sm text-yellow-600">
+                        {report.incidents.map((incident, idx) => (
+                          <li key={idx}>• {incident}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* General Notes */}
+                  {report.notes && (
+                    <div className="mt-4 pt-4 border-t">
+                      <h4 className="font-semibold text-gray-900 mb-2">📝 Notizen</h4>
+                      <p className="text-sm text-gray-600">{report.notes}</p>
+                    </div>
+                  )}
+                </Card>
+              ))}
+            </div>
+          )}
+        </>
+      ) : (
+        <Card>
+          <p className="text-gray-500 text-center py-8">
+            Keine Kinder zugeordnet.
+          </p>
+        </Card>
+      )}
+    </div>
+  );
+}

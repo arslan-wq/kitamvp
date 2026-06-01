@@ -1,0 +1,138 @@
+╔════════════════════════════════════════════════════════════════╗
+║   KiTA MANAGEMENT SOFTWARE - QUICK START GUIDE                ║
+║                                                                ║
+║   Alles ist konfiguriert und bereit zum Testen! 🚀           ║
+╚════════════════════════════════════════════════════════════════╝
+
+📋 SCHRITT 1: ÖFFNE BROWSER
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  URL: http://localhost:3000
+  
+  ⚠️  Falls die Seite nicht lädt:
+      1. Terminal öffnen
+      2. npm run dev
+      3. Auf http://localhost:3000 gehen
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📧 SCHRITT 2: ANMELDEN - Wähle eine Rolle zum Testen
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  👨‍💼 ADMIN (Alles sehen & konfigurieren)
+      Email:    admin@test.ch
+      Passwort: AdminTest123!
+      
+      → Beste für: Locations erstellen, alles testen
+
+  👨‍⚖️ KITA-LEITER (Management & Kontrolle)
+      Email:    leiter@test.ch
+      Passwort: BetreuerTest123!
+      
+      → Beste für: Standorte verwalten, Betreuer zuweisen
+
+  👨‍🏫 BETREUER (Tägliche Arbeit)
+      Email:    betreuer@test.ch
+      Passwort: BetreuerTest123!
+      
+      → Beste für: Check-In/Out, nur eigene Location sehen
+
+  👪 ELTERN (Portal für Eltern)
+      Email:    eltern@test.ch
+      Passwort: ElternTest123!
+      Test-Kind: Tim Testuser
+      
+      → Beste für: ExtraDay buchen, nur eigene Kinder sehen
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🧪 SCHRITT 3: FEATURES TESTEN
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  🔵 Schneller Test (15 min):
+     1. Login als ADMIN
+     2. Gehe zu 📍 Standorte & Gruppen
+     3. Erstelle neue Location "Testgruppe"
+     4. Gehe zu 👶 Kinderverwaltung
+     5. Erstelle neues Kind und weise zu Location zu
+     6. Logout → Login als ELTERN
+     7. Buche ExtraDay mit allen 5 Meal-Type Optionen
+
+  🟠 Mittlerer Test (30 min):
+     Alle Punkte vom Schnellen Test +
+     8. Teste jede Rolle separat (Admin, Leiter, Betreuer, Eltern)
+     9. Überprüfe Berechtigungen (wer sieht was)
+     10. Teste Email-Versand (erstelle Kind mit deiner Email)
+
+  🔴 Vollständiger Test (1 Std):
+     Alle Punkte vom Mittleren Test +
+     11. Mehrere Locations erstellen
+     12. Mehrere Betreuer zuweisen
+     13. Mehrere Kinder erstellen
+     14. Verschiedene ExtraDay-Typen buchen
+     15. Check-In/Check-Out testen
+     16. Alle Berechtigungen überprüfen
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ SCHRITT 4: FOKUS PUNKTE ZUM TESTEN
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ☑️ Gibt es die 5 Meal-Type-Optionen beim ExtraDay buchen?
+     ✓ FULL_DAY (Ganztägig)
+     ✓ MORNING_WITH_MEAL (Vormittag mit Essen)
+     ✓ MORNING_NO_MEAL (Vormittag ohne Essen)
+     ✓ AFTERNOON_WITH_MEAL (Nachmittag mit Essen)
+     ✓ AFTERNOON_NO_MEAL (Nachmittag ohne Essen)
+
+  ☑️ Funktioniert die Child-Location Zuordnung?
+     - Kind wird zu Location zugeordnet
+     - Location zeigt das Kind in ihrer Liste
+     - Betreuer sieht nur Kinder seiner Location
+
+  ☑️ Funktioniert das Email-System?
+     - Parent Invitation Email wird versendet
+     - Email kommt von: noreply@kitaluna-app.ch
+     - Email enthält temporäres Passwort
+
+  ☑️ Berechtigungen funktionieren?
+     - Eltern: Sehen NUR ihre eigenen Kinder
+     - Betreuer: Sehen NUR ihre Location-Kinder
+     - Admin/Leiter: Sehen ALLE Kinder
+     - Nur Admin/Leiter können Locations erstellen
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🐛 PROBLEM? HIER SIND TIPPS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  "Webseite ist nicht erreichbar"
+  → Server neustarten: npm run dev
+
+  "Passwort falsch"
+  → Kopiere exakt aus TEST_USERS.md (case-sensitive!)
+
+  "ExtraDay Type zeigt nicht alle Optionen"
+  → Browser-Cache löschen (Strg+Shift+Entf)
+
+  "Email kommt nicht"
+  → Überprüfe Resend.com ob Domain verified ist
+  → Logs anschauen: tail -50 /tmp/kita-dev.log
+
+  "Betreuer sieht Kinder von anderer Location"
+  → Betreuer muss locationId zugewiesen haben
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📚 WEITERE RESSOURCEN
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  TEST_USERS.md          ← Detaillierte Test Szenarien
+  TEST_CHECKLIST.md      ← Vollständige Test-Checkliste
+  TEST_CHECKLIST.md      ← Berechtigungsmatrix & Troubleshooting
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Viel Spaß beim Testen! 🎉
+
+Bei Fragen oder Problemen: Schreib einfach!
+
