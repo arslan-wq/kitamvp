@@ -2,6 +2,7 @@ import { getServerSession } from 'next-auth/next';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { createLocationSchema } from '@/lib/validation';
+import { applyStaffAssignments } from '@/lib/locationStaff';
 
 export async function GET(_request: Request) {
   try {
@@ -47,20 +48,26 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const data = createLocationSchema.parse(body);
+    const { staffAssignments, ...data } = createLocationSchema.parse(body);
 
     const location = await prisma.location.create({
       data: {
         ...data,
+        email: data.email || null,
         kitaId: user.kitaId!,
-      },
-      include: {
-        users: true,
-        children: true,
       },
     });
 
-    return NextResponse.json(location, { status: 201 });
+    if (staffAssignments && staffAssignments.length) {
+      await applyStaffAssignments(location.id, user.kitaId!, location.name, staffAssignments);
+    }
+
+    const withRelations = await prisma.location.findUnique({
+      where: { id: location.id },
+      include: { users: true, children: true },
+    });
+
+    return NextResponse.json(withRelations, { status: 201 });
   } catch (error: any) {
     console.error('Error creating location:', error);
     if (error.name === 'ZodError') {

@@ -9,10 +9,20 @@ interface Location {
   name: string;
   capacity: number;
   ageGroup: string;
+  address?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  emergencyPhone?: string | null;
   staff: string[];
-  users?: Array<{ id: string; name: string }>;
+  users?: Array<{ id: string; name: string; workingHours?: string | null }>;
   children?: Array<{ id: string; firstName: string; lastName: string; photoUrl?: string | null }>;
   childrenCount?: number;
+}
+
+interface StaffMember {
+  id: string;
+  name: string;
+  role: string;
 }
 
 export default function LocationsPage() {
@@ -25,12 +35,20 @@ export default function LocationsPage() {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
+  const [allStaff, setAllStaff] = useState<StaffMember[]>([]);
+
   const [formData, setFormData] = useState({
     name: '',
     capacity: '',
     ageGroup: '',
-    staff: '',
+    address: '',
+    phone: '',
+    email: '',
+    emergencyPhone: '',
   });
+
+  // Personal-Zuweisung: userId -> { assigned, workingHours }
+  const [staffAssign, setStaffAssign] = useState<Record<string, { assigned: boolean; workingHours: string }>>({});
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -38,11 +56,19 @@ export default function LocationsPage() {
       return;
     }
 
-    const fetchLocations = async () => {
+    const fetchData = async () => {
       try {
         const res = await fetch('/api/locations');
         const data = await res.json();
         setLocations(data || []);
+        // Personal nur für Verwalter laden (für Zuweisung)
+        if (['ADMIN', 'KITA_LEITER'].includes((session?.user as any)?.role)) {
+          const uRes = await fetch('/api/users');
+          if (uRes.ok) {
+            const u = await uRes.json();
+            setAllStaff((u.staff || []).map((s: any) => ({ id: s.id, name: s.name, role: s.role })));
+          }
+        }
       } catch (error) {
         console.error('Error fetching locations:', error);
       } finally {
@@ -51,24 +77,28 @@ export default function LocationsPage() {
     };
 
     if (status === 'authenticated') {
-      fetchLocations();
+      fetchData();
     }
-  }, [status, router]);
+  }, [status, router, session]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  const emptyForm = { name: '', capacity: '', ageGroup: '', address: '', phone: '', email: '', emergencyPhone: '' };
+
   const closeForm = () => {
     setShowForm(false);
     setEditingId(null);
-    setFormData({ name: '', capacity: '', ageGroup: '', staff: '' });
+    setFormData(emptyForm);
+    setStaffAssign({});
   };
 
   const openCreate = () => {
     setEditingId(null);
-    setFormData({ name: '', capacity: '', ageGroup: '', staff: '' });
+    setFormData(emptyForm);
+    setStaffAssign({});
     setShowForm(true);
   };
 
@@ -78,10 +108,26 @@ export default function LocationsPage() {
       name: l.name,
       capacity: String(l.capacity ?? ''),
       ageGroup: l.ageGroup || '',
-      staff: '',
+      address: l.address || '',
+      phone: l.phone || '',
+      email: l.email || '',
+      emergencyPhone: l.emergencyPhone || '',
     });
+    // Aktuell zugewiesenes Personal vorbelegen
+    const assigned: Record<string, { assigned: boolean; workingHours: string }> = {};
+    (l.users || []).forEach(u => { assigned[u.id] = { assigned: true, workingHours: u.workingHours || '' }; });
+    setStaffAssign(assigned);
     setShowForm(true);
   };
+
+  const toggleStaff = (id: string) =>
+    setStaffAssign(prev => ({
+      ...prev,
+      [id]: { assigned: !prev[id]?.assigned, workingHours: prev[id]?.workingHours || '' },
+    }));
+
+  const setStaffHours = (id: string, workingHours: string) =>
+    setStaffAssign(prev => ({ ...prev, [id]: { assigned: prev[id]?.assigned ?? true, workingHours } }));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -89,11 +135,19 @@ export default function LocationsPage() {
 
     setSubmitting(true);
     try {
+      const staffAssignments = Object.entries(staffAssign)
+        .filter(([, v]) => v.assigned)
+        .map(([userId, v]) => ({ userId, workingHours: v.workingHours || undefined }));
+
       const locationData = {
         name: formData.name,
         capacity: parseInt(formData.capacity) || 0,
         ageGroup: formData.ageGroup || 'Gemischt',
-        staff: formData.staff ? formData.staff.split(',').map(s => s.trim()) : [],
+        address: formData.address || undefined,
+        phone: formData.phone || undefined,
+        email: formData.email || undefined,
+        emergencyPhone: formData.emergencyPhone || undefined,
+        staffAssignments,
       };
 
       const res = await fetch(
@@ -214,14 +268,66 @@ export default function LocationsPage() {
                 className="input" placeholder="z.B. 2–4 Jahre"
               />
             </div>
-            <div className="sm:col-span-2">
-              <label className="label">Betreuungspersonen <span className="text-gray-400 font-normal">(komma-getrennt)</span></label>
-              <input
-                type="text" name="staff" value={formData.staff} onChange={handleChange}
-                className="input" placeholder="z.B. Anna Müller, Peter Schmidt"
-              />
+          </div>
+
+          {/* Kontaktangaben */}
+          <div className="mt-6">
+            <p className="eyebrow mb-3">📞 Kontakt & Notfall</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="sm:col-span-2">
+                <label className="label">Adresse</label>
+                <input type="text" name="address" value={formData.address} onChange={handleChange}
+                  className="input" placeholder="z.B. Mondstrasse 12, 8000 Zürich" />
+              </div>
+              <div>
+                <label className="label">Telefon</label>
+                <input type="tel" name="phone" value={formData.phone} onChange={handleChange}
+                  className="input" placeholder="z.B. 044 123 45 67" />
+              </div>
+              <div>
+                <label className="label">E-Mail</label>
+                <input type="email" name="email" value={formData.email} onChange={handleChange}
+                  className="input" placeholder="z.B. standort@kita.ch" />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="label">🚨 Notfallnummer</label>
+                <input type="tel" name="emergencyPhone" value={formData.emergencyPhone} onChange={handleChange}
+                  className="input" placeholder="z.B. 079 000 00 00" />
+              </div>
             </div>
           </div>
+
+          {/* Personal zuweisen */}
+          <div className="mt-6">
+            <p className="eyebrow mb-3">👤 Personal zuweisen & Arbeitszeiten</p>
+            {allStaff.length === 0 ? (
+              <p className="text-sm text-secondary-400">Kein Personal verfügbar.</p>
+            ) : (
+              <div className="space-y-2">
+                {allStaff.map(s => {
+                  const a = staffAssign[s.id];
+                  const checked = !!a?.assigned;
+                  return (
+                    <div key={s.id} className="flex flex-col sm:flex-row sm:items-center gap-2 p-2.5 surface rounded-xl">
+                      <label className="flex items-center gap-2 flex-1 cursor-pointer min-w-0">
+                        <input type="checkbox" checked={checked} onChange={() => toggleStaff(s.id)}
+                          className="w-4 h-4 accent-primary-600" />
+                        <span className="font-medium text-secondary-900 truncate">{s.name}</span>
+                        <span className="chip chip-neutral shrink-0">{s.role}</span>
+                      </label>
+                      {checked && (
+                        <input type="text" value={a?.workingHours || ''}
+                          onChange={e => setStaffHours(s.id, e.target.value)}
+                          className="input sm:max-w-[220px]" placeholder="Arbeitszeit z.B. Mo–Fr 08:00–17:00" />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            <p className="text-xs text-secondary-400 mt-2">Zugewiesenes Personal wird per E-Mail benachrichtigt.</p>
+          </div>
+
           <div className="flex justify-end gap-3 mt-6">
             <button type="button" onClick={closeForm} className="btn btn-secondary">
               Abbrechen
@@ -311,14 +417,24 @@ export default function LocationsPage() {
                   </div>
                 )}
 
-                {/* Personal als Chips */}
+                {/* Kontaktangaben */}
+                {(location.address || location.phone || location.email || location.emergencyPhone) && (
+                  <div className="mb-3 text-sm space-y-1">
+                    {location.address && <p className="text-secondary-600">📍 {location.address}</p>}
+                    {location.phone && <p className="text-secondary-600">📞 {location.phone}</p>}
+                    {location.email && <p className="text-secondary-600 truncate">✉️ {location.email}</p>}
+                    {location.emergencyPhone && <p className="text-red-600 font-medium">🚨 Notfall: {location.emergencyPhone}</p>}
+                  </div>
+                )}
+
+                {/* Personal als Chips (mit Arbeitszeiten) */}
                 {location.users && location.users.length > 0 && (
                   <div className="mt-auto pt-3 border-t border-gray-100">
                     <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-1.5">Personal</p>
                     <div className="flex flex-wrap gap-1.5">
                       {location.users.map(user => (
                         <span key={user.id} className="text-xs bg-accent-50 text-accent-700 rounded-lg px-2 py-1">
-                          👤 {user.name}
+                          👤 {user.name}{user.workingHours ? ` · ${user.workingHours}` : ''}
                         </span>
                       ))}
                     </div>

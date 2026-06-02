@@ -109,7 +109,16 @@ export const createLocationSchema = z.object({
   name: z.string().min(1, 'Standortname ist erforderlich'),
   capacity: z.number().int().positive('Kapazität muss positiv sein'),
   ageGroup: z.string().optional(),
+  address: z.string().optional(),
+  phone: z.string().optional(),
+  email: z.string().email('Ungültige E-Mail').optional().or(z.literal('')),
+  emergencyPhone: z.string().optional(),
   staff: z.array(z.string()).optional(),
+  // Personal-Zuweisung mit Arbeitszeiten: [{ userId, workingHours }]
+  staffAssignments: z.array(z.object({
+    userId: z.string(),
+    workingHours: z.string().optional(),
+  })).optional(),
 });
 
 export const updateLocationSchema = createLocationSchema.partial();

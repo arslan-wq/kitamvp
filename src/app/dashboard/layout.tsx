@@ -22,6 +22,7 @@ export default function DashboardLayout({
       { label: '💬 Nachrichten', href: '/dashboard/messaging' },
       { label: '🏥 Medizinische Info', href: '/dashboard/medical-records' },
       { label: '📍 Standorte', href: '/dashboard/locations' },
+      { label: '📞 Kita Kontakt', href: '/dashboard/kontakt' },
       { label: '🖼️ Fotos & Dokumente', href: '/dashboard/documents' },
     ];
 

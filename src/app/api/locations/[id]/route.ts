@@ -2,6 +2,7 @@ import { getServerSession } from 'next-auth/next';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { updateLocationSchema } from '@/lib/validation';
+import { applyStaffAssignments } from '@/lib/locationStaff';
 
 async function getManager(email: string) {
   const user = await prisma.user.findUnique({ where: { email } });
@@ -24,11 +25,19 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
 
-    const data = updateLocationSchema.parse(await request.json());
+    const { staffAssignments, ...data } = updateLocationSchema.parse(await request.json());
 
-    const updated = await prisma.location.update({
+    await prisma.location.update({
       where: { id: params.id },
-      data,
+      data: { ...data, ...(data.email !== undefined ? { email: data.email || null } : {}) },
+    });
+
+    if (staffAssignments) {
+      await applyStaffAssignments(params.id, user.kitaId!, location.name, staffAssignments);
+    }
+
+    const updated = await prisma.location.findUnique({
+      where: { id: params.id },
       include: { users: true, children: true },
     });
 

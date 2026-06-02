@@ -87,6 +87,7 @@ model User {
   kita       KiTA?      @relation(fields: [kitaId], references: [id])
   locationId String?
   location   Location?  @relation(fields: [locationId], references: [id])
+  workingHours String?  // Arbeitszeiten, z.B. "Mo-Fr 08:00-17:00"
   shifts     Shift[]    @relation("UserShifts")
   resetToken       String?   @unique
   resetTokenExpiry DateTime?
@@ -548,6 +549,10 @@ model Location {
   name            String    // "Raum 1", "Gruppe A", etc.
   capacity        Int       // Max children in this room
   ageGroup        String?   // "0-2 years", "2-4 years", "3-6 years"
+  address         String?   // Standort-Adresse (Kita Kontakt)
+  phone           String?   // Telefonnummer des Standorts
+  email           String?   // E-Mail des Standorts
+  emergencyPhone  String?   // Notfallnummer
   staff           String[]  // User IDs of assigned staff
   users           User[]    // Staff assigned to this location
   children        Child[]   // Children assigned to this location

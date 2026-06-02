@@ -213,6 +213,33 @@ export async function sendActivityEmail(
   return response;
 }
 
+export async function sendStaffAssignmentEmail(
+  to: string,
+  opts: { staffName?: string; locationName: string; workingHours?: string | null }
+) {
+  const base = process.env.NEXT_PUBLIC_APP_URL || '';
+  const link = `${base}/dashboard/schedule`;
+  const subject = `Standort-Zuweisung: ${opts.locationName}`;
+  const html = `
+    <div style="max-width:600px;margin:0 auto;font-family:Arial,sans-serif;color:#1d1d1f">
+      <div style="background:#458052;color:#fff;padding:28px;text-align:center;border-radius:16px 16px 0 0">
+        <h1 style="margin:0;font-size:22px">📍 Neue Standort-Zuweisung</h1>
+      </div>
+      <div style="background:#f5f5f7;padding:28px;border-radius:0 0 16px 16px">
+        <p>Hallo${opts.staffName ? ' ' + opts.staffName : ''},</p>
+        <p>Du wurdest dem Standort <strong>${opts.locationName}</strong> zugewiesen.</p>
+        ${opts.workingHours ? `<div style="background:#fff;border:1px solid #ddd;border-radius:12px;padding:14px"><strong>Arbeitszeiten:</strong> ${opts.workingHours}</div>` : ''}
+        <p style="text-align:center;margin:24px 0">
+          <a href="${link}" style="display:inline-block;background:#458052;color:#fff;padding:12px 28px;text-decoration:none;border-radius:12px;font-weight:bold">Zum Belegungsplan →</a>
+        </p>
+        <p style="color:#6e6e73;font-size:12px;margin-top:24px">KitaLuna</p>
+      </div>
+    </div>`;
+  const response = await resend.emails.send({ from: FROM_EMAIL, to, subject, html });
+  if (response.error) throw new Error(response.error.message || 'Resend error');
+  return response;
+}
+
 export async function sendWelcomeEmail(parentEmail: string, firstName: string) {
   try {
     const response = await resend.emails.send({
