@@ -88,6 +88,8 @@ model User {
   locationId String?
   location   Location?  @relation(fields: [locationId], references: [id])
   shifts     Shift[]    @relation("UserShifts")
+  resetToken       String?   @unique
+  resetTokenExpiry DateTime?
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
 
@@ -162,6 +164,8 @@ model Parent {
   phone         String
   children      Child[]                @relation("ChildParents")
   deviceTokens  ParentDeviceToken[]    @relation("ParentTokens")
+  resetToken       String?   @unique
+  resetTokenExpiry DateTime?
   createdAt     DateTime               @default(now())
   updatedAt     DateTime               @updatedAt
 }

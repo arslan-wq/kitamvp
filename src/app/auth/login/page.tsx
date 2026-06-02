@@ -116,7 +116,7 @@ function LoginPageInner() {
                 <label htmlFor="password" className="label">
                   Passwort
                 </label>
-                <Link href="#" className="text-xs font-medium text-primary-600 hover:text-primary-700">
+                <Link href="/auth/forgot-password" className="text-xs font-medium text-primary-600 hover:text-primary-700">
                   Passwort vergessen?
                 </Link>
               </div>
