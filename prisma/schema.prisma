@@ -351,6 +351,7 @@ model Notification {
   // Links back to source
   threadId    String?
   announcementId String?
+  link        String?  // Ziel-URL beim Klick auf die Benachrichtigung
 
   // Status
   isSent      Boolean @default(false)

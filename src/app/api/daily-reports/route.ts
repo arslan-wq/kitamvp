@@ -2,6 +2,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { sendDailyReportEmail } from '@/lib/email';
+import { createNotifications } from '@/lib/notify';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
@@ -203,7 +204,7 @@ export async function POST(request: NextRequest) {
     try {
       const c = await prisma.child.findUnique({
         where: { id: childId },
-        include: { parents: { select: { email: true, firstName: true } } },
+        include: { parents: { select: { id: true, email: true, firstName: true } } },
       });
       if (c) {
         const dateLabel = reportDate.toLocaleDateString('de-CH');
@@ -213,6 +214,15 @@ export async function POST(request: NextRequest) {
             sendDailyReportEmail(p.email, { parentName: p.firstName, childName, dateLabel })
           )
         );
+        // In-App-Benachrichtigung (Glocke) an die Eltern
+        await createNotifications({
+          kitaId: session.user.kitaId,
+          recipientIds: c.parents.map((p) => p.id),
+          type: 'NEW_REPORT',
+          title: `Neuer Tagesbericht – ${childName}`,
+          message: `Tagesbericht vom ${dateLabel} ist verfügbar.`,
+          link: '/daily-reports',
+        });
       }
     } catch (e) {
       console.error('[daily-report] Eltern-Mail fehlgeschlagen:', e);

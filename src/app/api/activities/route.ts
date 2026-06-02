@@ -2,6 +2,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { sendActivityEmail } from '@/lib/email';
+import { createNotifications } from '@/lib/notify';
 import { NextRequest, NextResponse } from 'next/server';
 
 const ACTIVITY_LABELS: Record<string, string> = {
@@ -92,16 +93,17 @@ export async function POST(request: NextRequest) {
     include: {
       child: {
         include: {
-          parents: { select: { email: true, firstName: true } },
+          parents: { select: { id: true, email: true, firstName: true } },
         },
       },
     },
   });
 
+  const childName = `${activity.child.firstName} ${activity.child.lastName}`;
+  const activityLabel = ACTIVITY_LABELS[activity.type] || activity.type;
+
   // Eltern per E-Mail benachrichtigen
   try {
-    const childName = `${activity.child.firstName} ${activity.child.lastName}`;
-    const activityLabel = ACTIVITY_LABELS[activity.type] || activity.type;
     const timeLabel = new Date(activity.timestamp).toLocaleString('de-CH', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
     await Promise.allSettled(
       activity.child.parents.map((p) =>
@@ -111,6 +113,16 @@ export async function POST(request: NextRequest) {
   } catch (e) {
     console.error('[activity] Eltern-Mail fehlgeschlagen:', e);
   }
+
+  // In-App-Benachrichtigung (Glocke) an die Eltern
+  await createNotifications({
+    kitaId: session.user.kitaId,
+    recipientIds: activity.child.parents.map((p) => p.id),
+    type: 'NEW_ACTIVITY',
+    title: `Neue Aktivität: ${activityLabel}`,
+    message: `${childName} · ${activityLabel}${activity.details ? ` – ${activity.details}` : ''}`,
+    link: '/children',
+  });
 
   return NextResponse.json(activity, { status: 201 });
 }
