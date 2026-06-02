@@ -182,7 +182,7 @@ export async function POST(request: NextRequest) {
         childId: childId || null,
         title,
         startedBy: user.id,
-        startedByName: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+        startedByName: user.name || 'Unbekannt',
         startedByRole: user.role,
         isAnnouncement,
         messages: {
@@ -190,7 +190,7 @@ export async function POST(request: NextRequest) {
             content,
             attachments,
             senderId: user.id,
-            senderName: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+            senderName: user.name || 'Unbekannt',
             senderEmail: user.email,
             senderRole: user.role,
           },

@@ -97,7 +97,7 @@ export async function POST(
         content,
         attachments,
         senderId: user.id,
-        senderName: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+        senderName: user.name || 'Unbekannt',
         senderEmail: user.email,
         senderRole: user.role,
         readBy: [user.id], // Sender has read their own message
