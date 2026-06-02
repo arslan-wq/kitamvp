@@ -4,12 +4,14 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import ChildDossier from '@/components/ChildDossier';
+import ChildPhotoEditor from '@/components/ChildPhotoEditor';
 
 interface Child {
   id: string;
   firstName: string;
   lastName: string;
   birthDate: string;
+  photoUrl?: string | null;
   address?: string;
   city?: string;
   phone?: string;
@@ -55,8 +57,13 @@ export default function ChildDetailPage() {
           ← Zurück
         </Link>
         <div className="flex items-center gap-4">
-          <div className="avatar avatar-lg">
-            {child.firstName.charAt(0)}{child.lastName.charAt(0)}
+          <div className="avatar avatar-lg overflow-hidden">
+            {child.photoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={child.photoUrl} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <>{child.firstName.charAt(0)}{child.lastName.charAt(0)}</>
+            )}
           </div>
           <div>
             <h1 className="page-title">
@@ -65,6 +72,16 @@ export default function ChildDetailPage() {
             <p className="page-subtitle">Geb. {new Date(child.birthDate).toLocaleDateString('de-CH')}</p>
           </div>
         </div>
+      </div>
+
+      {/* Profilfoto verwalten (Eltern) */}
+      <div className="card p-6 sm:p-8">
+        <p className="eyebrow mb-4">Profilfoto</p>
+        <ChildPhotoEditor
+          childId={child.id}
+          initialPhotoUrl={child.photoUrl || null}
+          initials={`${child.firstName.charAt(0)}${child.lastName.charAt(0)}`.toUpperCase()}
+        />
       </div>
 
       {/* Komplettes Dossier des Kindes */}

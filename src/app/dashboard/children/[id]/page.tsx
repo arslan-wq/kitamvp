@@ -90,9 +90,13 @@ export default function ChildDetailPage({ params }: { params: { id: string } }) 
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-4">
-          <div className="avatar avatar-lg">
-            {child.firstName.charAt(0)}
-            {child.lastName.charAt(0)}
+          <div className="avatar avatar-lg overflow-hidden">
+            {child.photoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={child.photoUrl} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <>{child.firstName.charAt(0)}{child.lastName.charAt(0)}</>
+            )}
           </div>
           <div>
             <h1 className="page-title">

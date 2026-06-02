@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import ChildPhotoEditor from '@/components/ChildPhotoEditor';
 
 interface ChildFormProps {
   initialData?: {
@@ -10,6 +11,7 @@ interface ChildFormProps {
     birthDate: string;
     parentEmail?: string;
     locationId?: string;
+    photoUrl?: string | null;
   };
   isEditing?: boolean;
   childId?: string;
@@ -116,23 +118,36 @@ export default function ChildForm({ initialData, isEditing = false, childId }: C
         </div>
 
         <form onSubmit={handleSubmit} className="card overflow-hidden">
-          {/* Live-Vorschau-Kopf: zeigt Identität des Kindes auf einen Blick */}
-          <div className="flex items-center gap-4 px-6 sm:px-8 py-5 bg-gradient-to-r from-primary-50 to-accent-50 border-b border-gray-100">
-            <div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-white text-xl font-bold text-primary-600 shadow-sm shrink-0">
-              {initials}
-            </div>
-            <div className="min-w-0">
-              <p className="font-semibold text-secondary-900 truncate">
-                {formData.firstName || formData.lastName
-                  ? `${formData.firstName} ${formData.lastName}`.trim()
-                  : 'Neues Kind'}
-              </p>
-              <p className="text-sm text-secondary-500">
-                {formData.birthDate
-                  ? new Date(formData.birthDate).toLocaleDateString('de-CH')
-                  : 'Stammdaten erfassen'}
-              </p>
-            </div>
+          {/* Kopf: im Bearbeiten-Modus Profilfoto verwalten, sonst Live-Vorschau */}
+          <div className="px-6 sm:px-8 py-5 bg-gradient-to-r from-primary-50 to-accent-50 border-b border-secondary-100">
+            {isEditing && childId ? (
+              <div>
+                <p className="eyebrow mb-3">Profilfoto</p>
+                <ChildPhotoEditor
+                  childId={childId}
+                  initialPhotoUrl={initialData?.photoUrl || null}
+                  initials={initials}
+                />
+              </div>
+            ) : (
+              <div className="flex items-center gap-4">
+                <div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-white text-xl font-bold text-primary-600 shadow-sm shrink-0">
+                  {initials}
+                </div>
+                <div className="min-w-0">
+                  <p className="font-semibold text-secondary-900 truncate">
+                    {formData.firstName || formData.lastName
+                      ? `${formData.firstName} ${formData.lastName}`.trim()
+                      : 'Neues Kind'}
+                  </p>
+                  <p className="text-sm text-secondary-500">
+                    {formData.birthDate
+                      ? new Date(formData.birthDate).toLocaleDateString('de-CH')
+                      : 'Stammdaten erfassen'}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="p-6 sm:p-8">

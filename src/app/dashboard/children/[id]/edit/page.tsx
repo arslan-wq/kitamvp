@@ -48,6 +48,7 @@ export default function EditChildPage({ params }: { params: { id: string } }) {
           lastName: child.lastName,
           birthDate: new Date(child.birthDate).toISOString().split('T')[0],
           locationId: child.locationId || '',
+          photoUrl: child.photoUrl || null,
         }}
         isEditing={true}
       />

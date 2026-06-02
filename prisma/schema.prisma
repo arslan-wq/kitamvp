@@ -127,6 +127,7 @@ model Child {
   firstName       String
   lastName        String
   birthDate       DateTime
+  photoUrl        String?         @db.Text // Profilfoto (Data-URL, klein verkleinert)
   kitaId          String
   kita            KiTA            @relation(fields: [kitaId], references: [id])
   locationId      String?
