@@ -13,14 +13,31 @@ export async function GET() {
 
     const parent = await prisma.parent.findUnique({
       where: { id: session.user.id },
-      include: { children: true },
+      include: { children: { include: { location: true } } },
     });
 
     if (!parent) {
       return NextResponse.json({ error: 'Parent not found' }, { status: 404 });
     }
 
-    return NextResponse.json(parent.children);
+    // Heutige Anwesenheit der eigenen Kinder ermitteln
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const ids = parent.children.map((c) => c.id);
+    const att = ids.length
+      ? await prisma.attendance.findMany({
+          where: { childId: { in: ids }, date: { gte: today, lt: tomorrow } },
+        })
+      : [];
+
+    const children = parent.children.map((c) => ({
+      ...c,
+      present: att.some((a) => a.childId === c.id && a.checkInTime && !a.checkOutTime),
+    }));
+
+    return NextResponse.json(children);
   } catch (error) {
     console.error('Get parent children error:', error);
     return NextResponse.json(
