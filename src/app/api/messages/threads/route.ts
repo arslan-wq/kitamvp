@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
+import { notifyParentsOfNewMessage } from '@/lib/notifyMessage';
 
 /**
  * GET /api/messages/threads
@@ -234,6 +235,17 @@ export async function POST(request: NextRequest) {
           },
         },
       },
+    });
+
+    // Eltern per E-Mail benachrichtigen (Kind-Thread oder Ankündigung)
+    await notifyParentsOfNewMessage({
+      kitaId: user.kitaId,
+      childId: childId || null,
+      locationId,
+      isAnnouncement: !childId && isAnnouncement,
+      senderName: user.name || 'KitaLuna',
+      content,
+      title,
     });
 
     return NextResponse.json(thread, { status: 201 });

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
+import { notifyParentsOfNewMessage } from '@/lib/notifyMessage';
 
 /**
  * POST /api/messages/threads/[id]/replies
@@ -112,6 +113,16 @@ export async function POST(
       where: { id: threadId },
       data: { updatedAt: new Date() },
     });
+
+    // Antwort von Personal in einem Kind-Thread → Eltern benachrichtigen
+    if (user.role !== 'PARENT' && thread.childId) {
+      await notifyParentsOfNewMessage({
+        kitaId: thread.kitaId,
+        childId: thread.childId,
+        senderName: user.name || 'KitaLuna',
+        content,
+      });
+    }
 
     return NextResponse.json(reply, { status: 201 });
   } catch (error) {

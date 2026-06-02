@@ -1,6 +1,7 @@
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
+import { notifyParentsOfNewMessage } from '@/lib/notifyMessage';
 import { NextRequest, NextResponse } from 'next/server';
 
 // Nachrichten laufen über einen MessageThread je Kind.
@@ -80,6 +81,14 @@ export async function POST(request: NextRequest) {
         senderRole: role,
         content,
       },
+    });
+
+    // Eltern des Kindes per E-Mail benachrichtigen
+    await notifyParentsOfNewMessage({
+      kitaId: session.user.kitaId,
+      childId,
+      senderName: name,
+      content,
     });
 
     return NextResponse.json(message, { status: 201 });

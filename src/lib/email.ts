@@ -126,6 +126,38 @@ export async function sendPasswordResetEmail(email: string, resetUrl: string, na
   return response;
 }
 
+export async function sendNewMessageEmail(
+  to: string,
+  opts: { name?: string; senderName: string; preview: string; title?: string | null; isAnnouncement?: boolean }
+) {
+  const base = process.env.NEXT_PUBLIC_APP_URL || '';
+  const link = `${base}/messages`;
+  const heading = opts.isAnnouncement ? '📢 Neue Mitteilung' : '💬 Neue Nachricht';
+  const subject = opts.isAnnouncement
+    ? `Neue Mitteilung: ${opts.title || 'Ankündigung'}`
+    : `Neue Nachricht von ${opts.senderName}`;
+  const safePreview = (opts.preview || '').slice(0, 240);
+  const html = `
+    <div style="max-width:600px;margin:0 auto;font-family:Arial,sans-serif;color:#1d1d1f">
+      <div style="background:#458052;color:#fff;padding:28px;text-align:center;border-radius:16px 16px 0 0">
+        <h1 style="margin:0;font-size:22px">${heading}</h1>
+      </div>
+      <div style="background:#f5f5f7;padding:28px;border-radius:0 0 16px 16px">
+        <p>Hallo${opts.name ? ' ' + opts.name : ''},</p>
+        <p>Sie haben eine neue Mitteilung von <strong>${opts.senderName}</strong> in KitaLuna erhalten:</p>
+        ${opts.title ? `<p style="font-weight:bold;margin-bottom:4px">${opts.title}</p>` : ''}
+        <div style="background:#fff;border:1px solid #ddd;border-radius:12px;padding:14px;color:#48484a">${safePreview}</div>
+        <p style="text-align:center;margin:24px 0">
+          <a href="${link}" style="display:inline-block;background:#458052;color:#fff;padding:12px 28px;text-decoration:none;border-radius:12px;font-weight:bold">Mitteilung ansehen →</a>
+        </p>
+        <p style="color:#6e6e73;font-size:12px;margin-top:24px">KitaLuna – Eltern Portal</p>
+      </div>
+    </div>`;
+  const response = await resend.emails.send({ from: FROM_EMAIL, to, subject, html });
+  if (response.error) throw new Error(response.error.message || 'Resend error');
+  return response;
+}
+
 export async function sendWelcomeEmail(parentEmail: string, firstName: string) {
   try {
     const response = await resend.emails.send({
