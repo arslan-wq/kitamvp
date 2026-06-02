@@ -15,7 +15,8 @@ export async function GET(_request: NextRequest) {
     const kitaId = (session.user as any).kitaId;
     const children = await prisma.child.findMany({
       where: { kitaId },
-      include: { parents: true },
+      include: { parents: true, location: true, allergies: true },
+      orderBy: [{ firstName: 'asc' }],
     });
     return NextResponse.json(children);
   } catch (error) {
