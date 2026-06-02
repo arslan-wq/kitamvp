@@ -25,8 +25,13 @@ export default function DashboardLayout({
       { label: '🖼️ Fotos & Dokumente', href: '/dashboard/documents' },
     ];
 
-    // Only show admin features for ADMIN users
-    if (session?.user && (session.user as any).role === 'ADMIN') {
+    const role = (session?.user as any)?.role;
+    // Benutzerverwaltung für Admin & Leitung
+    if (role === 'ADMIN' || role === 'KITA_LEITER') {
+      allItems.push({ label: '👥 Benutzer', href: '/dashboard/users' });
+    }
+    // Nur Admin: Verträge & Abrechnung
+    if (role === 'ADMIN') {
       allItems.push({ label: '📄 Verträge', href: '/dashboard/contracts' });
       allItems.push({ label: '💰 Abrechnung', href: '/dashboard/billing' });
     }
