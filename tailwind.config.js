@@ -22,18 +22,18 @@ module.exports = {
           800: '#2F5537',
           900: '#26442D',
         },
-        // Sekundär: warmes Taupe/Braun (Text & neutrale Flächen)
+        // Sekundär: präzise, neutrale Grautöne (Apple/UBS-Ästhetik)
         secondary: {
-          50: '#F8F6F2',
-          100: '#EFEAE2',
-          200: '#DED6C8',
-          300: '#C6BAA6',
-          400: '#A69780',
-          500: '#827259',
-          600: '#665A45',
-          700: '#4D4435',
-          800: '#332E24',
-          900: '#1F1B15',
+          50: '#F5F5F7',
+          100: '#EBEBED',
+          200: '#DCDCDF',
+          300: '#C7C7CC',
+          400: '#9A9AA0',
+          500: '#6E6E73',
+          600: '#48484A',
+          700: '#363638',
+          800: '#1D1D1F',
+          900: '#0B0B0C',
         },
         // Akzent: Himmel-Türkis (sekundäre Akzente)
         accent: {
@@ -69,8 +69,8 @@ module.exports = {
         error: '#EF4444',
       },
       fontFamily: {
-        sans: ['Nunito', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
-        display: ['Quicksand', 'Nunito', 'sans-serif'],
+        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'SF Pro Text', 'Segoe UI', 'sans-serif'],
+        display: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'SF Pro Display', 'Segoe UI', 'sans-serif'],
         mono: ['Menlo', 'Monaco', 'Courier New', 'monospace'],
       },
       fontSize: {
