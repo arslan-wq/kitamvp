@@ -54,7 +54,7 @@ export default function NotificationSettings() {
           <button
             onClick={requestPermission}
             disabled={isLoading}
-            className="px-4 py-2 bg-primary text-white hover:bg-primary-dark disabled:opacity-50 text-sm font-medium rounded-lg transition"
+            className="px-4 py-2 bg-primary-600 text-white hover:bg-primary-800 disabled:opacity-50 text-sm font-medium rounded-lg transition"
           >
             {isLoading ? 'wird aktiviert...' : 'Aktivieren'}
           </button>

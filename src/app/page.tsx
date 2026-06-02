@@ -7,12 +7,12 @@ export default function Home() {
   const { data: session } = useSession();
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-kita-50 via-white to-secondary">
+    <main className="min-h-screen bg-gradient-to-br from-kita-50 via-white to-secondary-100">
       {/* Header */}
       <header className="bg-white shadow-soft">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition">
-            <div className="h-10 w-10 bg-gradient-to-br from-primary to-kita-500 rounded-xl flex items-center justify-center">
+            <div className="h-10 w-10 bg-gradient-to-br from-primary-500 to-kita-500 rounded-xl flex items-center justify-center">
               <span className="text-white font-bold text-lg">K</span>
             </div>
             <h1 className="text-2xl font-bold text-gray-900">KitaLuna</h1>
@@ -46,7 +46,7 @@ export default function Home() {
                 </Link>
                 <Link
                   href="/auth/signup"
-                  className="px-6 py-2 bg-primary text-white font-medium rounded-lg hover:bg-indigo-600 transition shadow-soft"
+                  className="px-6 py-2 bg-primary-600 text-white font-medium rounded-lg hover:bg-primary-700 transition shadow-soft"
                 >
                   Registrieren
                 </Link>
@@ -61,7 +61,7 @@ export default function Home() {
         <div className="text-center mb-12">
           <h2 className="text-5xl sm:text-6xl font-bold text-gray-900 mb-6">
             Moderne Verwaltung für
-            <span className="block bg-gradient-to-r from-primary to-kita-500 bg-clip-text text-transparent">
+            <span className="block bg-gradient-to-r from-primary-500 to-kita-500 bg-clip-text text-transparent">
               Ihre Kindertagesstätte
             </span>
           </h2>
@@ -73,13 +73,13 @@ export default function Home() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
             <Link
               href="/auth/signup"
-              className="px-8 py-4 bg-primary text-white font-semibold rounded-xl hover:bg-indigo-600 transition shadow-elevated text-lg"
+              className="px-8 py-4 bg-primary-600 text-white font-semibold rounded-xl hover:bg-primary-700 transition shadow-elevated text-lg"
             >
               Kostenlos Starten
             </Link>
             <Link
               href="/auth/login"
-              className="px-8 py-4 bg-white text-primary font-semibold rounded-xl border-2 border-primary hover:bg-gray-50 transition text-lg"
+              className="px-8 py-4 bg-white text-primary-600 font-semibold rounded-xl border-2 border-primary-600 hover:bg-gray-50 transition text-lg"
             >
               Login
             </Link>
@@ -145,26 +145,26 @@ export default function Home() {
             </ul>
           </div>
 
-          <div className="bg-gradient-to-br from-primary/10 to-kita-100 rounded-2xl p-8 border border-primary/20">
+          <div className="bg-gradient-to-br from-primary-500/10 to-kita-100 rounded-2xl p-8 border border-primary-600/20">
             <div className="bg-white rounded-xl p-8 shadow-soft">
               <h4 className="text-2xl font-bold text-gray-900 mb-6 text-center">Schneller Einstieg</h4>
               <div className="space-y-4">
                 <div className="flex items-center gap-3">
-                  <div className="h-8 w-8 bg-primary rounded-full text-white flex items-center justify-center font-bold text-sm">1</div>
+                  <div className="h-8 w-8 bg-primary-600 rounded-full text-white flex items-center justify-center font-bold text-sm">1</div>
                   <div>
                     <p className="font-semibold text-gray-900">Registrieren</p>
                     <p className="text-sm text-gray-600">Erstellen Sie kostenlos einen Account</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <div className="h-8 w-8 bg-primary rounded-full text-white flex items-center justify-center font-bold text-sm">2</div>
+                  <div className="h-8 w-8 bg-primary-600 rounded-full text-white flex items-center justify-center font-bold text-sm">2</div>
                   <div>
                     <p className="font-semibold text-gray-900">Setup</p>
                     <p className="text-sm text-gray-600">Konfigurieren Sie Ihre KiTA-Daten</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <div className="h-8 w-8 bg-primary rounded-full text-white flex items-center justify-center font-bold text-sm">3</div>
+                  <div className="h-8 w-8 bg-primary-600 rounded-full text-white flex items-center justify-center font-bold text-sm">3</div>
                   <div>
                     <p className="font-semibold text-gray-900">Verwenden</p>
                     <p className="text-sm text-gray-600">Starten Sie mit der Verwaltung</p>
@@ -173,7 +173,7 @@ export default function Home() {
               </div>
               <Link
                 href="/auth/signup"
-                className="w-full mt-8 px-6 py-3 bg-primary text-white font-semibold rounded-lg hover:bg-indigo-600 transition text-center"
+                className="w-full mt-8 px-6 py-3 bg-primary-600 text-white font-semibold rounded-lg hover:bg-primary-700 transition text-center"
               >
                 Jetzt Registrieren
               </Link>
@@ -185,15 +185,15 @@ export default function Home() {
         <div className="bg-white rounded-2xl shadow-soft p-8 mb-16">
           <div className="grid md:grid-cols-3 gap-8 text-center">
             <div>
-              <p className="text-4xl font-bold text-primary mb-2">100%</p>
+              <p className="text-4xl font-bold text-primary-600 mb-2">100%</p>
               <p className="text-gray-600">Verfügbarkeit</p>
             </div>
             <div>
-              <p className="text-4xl font-bold text-primary mb-2">24/7</p>
+              <p className="text-4xl font-bold text-primary-600 mb-2">24/7</p>
               <p className="text-gray-600">Support verfügbar</p>
             </div>
             <div>
-              <p className="text-4xl font-bold text-primary mb-2">DSGVO</p>
+              <p className="text-4xl font-bold text-primary-600 mb-2">DSGVO</p>
               <p className="text-gray-600">Konform</p>
             </div>
           </div>

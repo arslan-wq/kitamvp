@@ -11,7 +11,7 @@ export default async function ParentLandingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-kita-400 via-primary to-kita-600">
+    <div className="min-h-screen bg-gradient-to-br from-kita-400 via-primary-500 to-kita-600">
       {/* Header */}
       <header className="bg-white bg-opacity-10 backdrop-blur-sm border-b border-white border-opacity-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -24,7 +24,7 @@ export default async function ParentLandingPage() {
             </div>
             <Link
               href="/auth/login"
-              className="px-6 py-2 bg-white text-primary rounded-lg hover:bg-gray-100 transition font-semibold"
+              className="px-6 py-2 bg-white text-primary-600 rounded-lg hover:bg-gray-100 transition font-semibold"
             >
               Anmelden
             </Link>
@@ -44,7 +44,7 @@ export default async function ParentLandingPage() {
           </p>
           <Link
             href="/auth/login?role=parent"
-            className="inline-block px-8 py-4 bg-white text-primary rounded-xl hover:bg-gray-100 transition font-bold text-lg"
+            className="inline-block px-8 py-4 bg-white text-primary-600 rounded-xl hover:bg-gray-100 transition font-bold text-lg"
           >
             👤 Als Elternteil anmelden
           </Link>

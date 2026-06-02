@@ -29,7 +29,7 @@ export default async function ParentLayout({
           <div className="flex justify-between h-20">
             <div className="flex items-center space-x-8">
               <div className="flex items-center space-x-3">
-                <div className="h-10 w-10 bg-gradient-to-br from-primary to-kita-500 rounded-xl flex items-center justify-center">
+                <div className="h-10 w-10 bg-gradient-to-br from-primary-500 to-kita-500 rounded-xl flex items-center justify-center">
                   <span className="text-white text-lg font-bold">K</span>
                 </div>
                 <h1 className="text-xl font-bold text-gray-900">Eltern Portal</h1>
@@ -39,7 +39,7 @@ export default async function ParentLayout({
                   <Link
                     key={item.href}
                     href={item.href}
-                    className="text-gray-700 hover:text-primary px-4 py-2 rounded-lg hover:bg-kita-50 transition font-medium"
+                    className="text-gray-700 hover:text-primary-600 px-4 py-2 rounded-lg hover:bg-kita-50 transition font-medium"
                   >
                     {item.label}
                   </Link>
@@ -50,7 +50,7 @@ export default async function ParentLayout({
               <span className="text-gray-700 font-medium">{session.user?.name}</span>
               <a
                 href="/api/auth/signout"
-                className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-indigo-600 transition font-medium shadow-soft"
+                className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition font-medium shadow-soft"
               >
                 Abmelden
               </a>

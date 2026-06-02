@@ -183,7 +183,7 @@ export default function MealPlanViewer({ childAllergies }: MealPlanViewerProps) 
       <div className="bg-white rounded-2xl shadow-soft p-8">
         <div className="space-y-6">
           {meals.map((meal, index) => (
-            <div key={index} className="border border-gray-200 rounded-xl p-6 hover:border-primary transition">
+            <div key={index} className="border border-gray-200 rounded-xl p-6 hover:border-primary-600 transition">
               <h3 className="text-lg font-bold text-gray-900 mb-4">{meal.day}</h3>
 
               <div className="space-y-4">

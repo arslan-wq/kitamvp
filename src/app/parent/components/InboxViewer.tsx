@@ -144,7 +144,7 @@ export default function InboxViewer({ kitaId }: InboxViewerProps) {
           }}
           className={`px-4 py-3 font-medium border-b-2 transition ${
             activeTab === 'messages'
-              ? 'text-primary border-primary'
+              ? 'text-primary-600 border-primary-600'
               : 'text-gray-600 border-transparent hover:text-gray-900'
           }`}
         >
@@ -157,7 +157,7 @@ export default function InboxViewer({ kitaId }: InboxViewerProps) {
           }}
           className={`px-4 py-3 font-medium border-b-2 transition ${
             activeTab === 'announcements'
-              ? 'text-primary border-primary'
+              ? 'text-primary-600 border-primary-600'
               : 'text-gray-600 border-transparent hover:text-gray-900'
           }`}
         >
@@ -187,8 +187,8 @@ export default function InboxViewer({ kitaId }: InboxViewerProps) {
                   onClick={() => setSelectedThread(thread)}
                   className={`w-full text-left p-4 rounded-lg border-2 transition ${
                     selectedThread?.id === thread.id
-                      ? 'border-primary bg-blue-50'
-                      : 'border-gray-200 hover:border-primary hover:bg-gray-50'
+                      ? 'border-primary-600 bg-blue-50'
+                      : 'border-gray-200 hover:border-primary-600 hover:bg-gray-50'
                   }`}
                 >
                   <div className="flex items-start justify-between mb-1">
@@ -263,13 +263,13 @@ export default function InboxViewer({ kitaId }: InboxViewerProps) {
                     value={replyContent}
                     onChange={(e) => setReplyContent(e.target.value)}
                     placeholder="Ihre Antwort..."
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
                     rows={3}
                   />
                   <button
                     type="submit"
                     disabled={isSendingReply || !replyContent.trim()}
-                    className="w-full px-4 py-3 bg-primary text-white rounded-lg hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition"
+                    className="w-full px-4 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition"
                   >
                     {isSendingReply ? 'Wird gesendet...' : 'Antwort senden'}
                   </button>

@@ -38,8 +38,17 @@ body {
     @apply transition-all duration-200 ease-smooth;
   }
 
-  /* Warme, präzise Auswahl-/Fokusfarbe */
+  /* Präzise Auswahl-/Fokusfarbe */
   ::selection { background-color: #C3DFC9; }
+
+  /* Native Formular-Elemente in Markenfarbe (Apple-Look) */
+  input[type='checkbox'],
+  input[type='radio'],
+  input[type='date'],
+  input[type='datetime-local'],
+  input[type='time'] {
+    accent-color: #458052;
+  }
 }
 
 /* ============ COMPONENTS ============ */
@@ -54,7 +63,7 @@ body {
   }
 
   .btn-secondary {
-    @apply bg-white text-secondary-800 border border-secondary-200 hover:bg-secondary-50 hover:border-secondary-300 active:bg-secondary-100;
+    @apply bg-secondary-100 text-secondary-800 hover:bg-secondary-200 active:bg-secondary-300;
   }
 
   .btn-ghost {
@@ -104,18 +113,18 @@ body {
     @apply px-6 py-4 border-t border-secondary-100 bg-secondary-50;
   }
 
-  /* Forms — verfeinert */
+  /* Forms — Apple: gefülltes Feld, Fokus wird weiß mit Ring */
   .input,
   .textarea,
   .select {
-    @apply w-full px-3.5 py-2.5 rounded-xl border border-secondary-200 bg-white text-secondary-900 placeholder-secondary-400 transition-all duration-200;
-    @apply focus:outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-100;
+    @apply w-full px-3.5 py-2.5 rounded-xl border border-transparent bg-secondary-100 text-secondary-900 placeholder-secondary-400 transition-all duration-200;
+    @apply focus:outline-none focus:bg-white focus:border-primary-400 focus:ring-4 focus:ring-primary-100;
   }
 
   .input:disabled,
   .textarea:disabled,
   .select:disabled {
-    @apply bg-secondary-50 text-secondary-400 cursor-not-allowed;
+    @apply bg-secondary-100/60 text-secondary-400 cursor-not-allowed;
   }
 
   .input-error,
