@@ -1,6 +1,7 @@
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
+import { resolveChildAccess } from '@/lib/childAccess';
 import { NextRequest, NextResponse } from 'next/server';
 
 /**
@@ -71,32 +72,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Only staff can add vaccinations
-    const userRole = (session.user as any).role;
-    if (!['ADMIN', 'KITA_LEITER', 'BETREUER'].includes(userRole)) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
-
     const data = await request.json();
-    const { childId, kitaId, vaccineName, vaccinationDate, ...vaccData } = data;
+    const { childId, kitaId: _ignore, vaccineName, vaccinationDate, ...vaccData } = data;
 
-    if (!childId || !kitaId || !vaccineName || !vaccinationDate) {
+    if (!childId || !vaccineName || !vaccinationDate) {
       return NextResponse.json(
-        { error: 'Missing required fields: childId, kitaId, vaccineName, vaccinationDate' },
+        { error: 'Missing required fields: childId, vaccineName, vaccinationDate' },
         { status: 400 }
       );
     }
 
-    // Verify child belongs to same KiTA
-    const child = await prisma.child.findFirst({
-      where: { id: childId, kitaId }
-    });
-
-    if (!child) {
-      return NextResponse.json(
-        { error: 'Child not found or access denied' },
-        { status: 403 }
-      );
+    // Zugriff: Personal der KiTA ODER Eltern des Kindes
+    const access = await resolveChildAccess(session.user.email, childId);
+    if (!access.allowed) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     // Ensure medical record exists

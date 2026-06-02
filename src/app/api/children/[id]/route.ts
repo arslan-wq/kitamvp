@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
+import { resolveChildAccess } from '@/lib/childAccess';
 
 export async function GET(
   __request: NextRequest,
@@ -65,28 +66,12 @@ export async function PUT(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Only staff can edit children, not parents
-    const userType = (session.user as any).type;
-    if (userType === 'parent') {
-      return NextResponse.json({ error: 'Parents cannot edit child data' }, { status: 403 });
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email! },
-      include: { kita: true },
-    });
-
-    if (!user?.kitaId) {
-      return NextResponse.json({ error: 'No KiTA assigned' }, { status: 400 });
-    }
-
-    const child = await prisma.child.findUnique({
-      where: { id: params.id },
-    });
-
-    if (!child || child.kitaId !== user.kitaId) {
+    // Zugriff: Personal der KiTA ODER Eltern des Kindes
+    const access = await resolveChildAccess(session.user.email, params.id);
+    if (!access.allowed || !access.child) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
+    const child = access.child;
 
     const { firstName, lastName, birthDate, locationId } = await request.json();
 
@@ -96,9 +81,10 @@ export async function PUT(
         firstName: firstName || child.firstName,
         lastName: lastName || child.lastName,
         birthDate: birthDate ? new Date(birthDate) : child.birthDate,
-        // locationId: undefined = unverändert; '' / null = Standort entfernen
-        locationId:
-          locationId === undefined ? child.locationId : locationId || null,
+        // Standort darf nur Personal ändern; Eltern-Änderungen werden ignoriert
+        ...(access.isStaff
+          ? { locationId: locationId === undefined ? child.locationId : locationId || null }
+          : {}),
       },
       include: { parents: true, allergies: true, location: true },
     });

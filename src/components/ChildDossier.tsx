@@ -23,15 +23,19 @@ interface Props {
   child: any;
   /** '/api/activities' (Personal) oder '/api/parent/activities' (Eltern) */
   activitiesBase: string;
-  /** true = Personal darf das medizinische Dossier bearbeiten */
+  /** true = darf medizinisches Dossier / Allergien / Stammdaten bearbeiten (Personal ODER Eltern) */
   editable?: boolean;
+  /** true = Personal — schaltet personal-only Features frei (z.B. Einladung senden) */
+  isStaff?: boolean;
+  /** E-Mail des aktuellen Betrachters (für Eltern: eigenen Kontakt bearbeiten) */
+  viewerEmail?: string | null;
 }
 
 const toCsv = (a?: string[]) => (Array.isArray(a) ? a.join(', ') : '');
 const fromCsv = (s: string) => s.split(',').map(x => x.trim()).filter(Boolean);
 const dateInput = (s?: string | null) => (s ? new Date(s).toISOString().slice(0, 10) : '');
 
-export default function ChildDossier({ child, activitiesBase, editable = false }: Props) {
+export default function ChildDossier({ child, activitiesBase, editable = false, isStaff = false, viewerEmail = null }: Props) {
   const [mr, setMr] = useState<any>(child.medicalRecord);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -46,6 +50,41 @@ export default function ChildDossier({ child, activitiesBase, editable = false }
   const [allergyForm, setAllergyForm] = useState<any>(null);
   const [subSaving, setSubSaving] = useState(false);
   const [invitingEmail, setInvitingEmail] = useState<string | null>(null);
+
+  // Stammdaten bearbeiten
+  const [core, setCore] = useState({ firstName: child.firstName, lastName: child.lastName, birthDate: child.birthDate });
+  const [coreEdit, setCoreEdit] = useState(false);
+  const [coreForm, setCoreForm] = useState<any>({});
+  const saveCore = async () => {
+    setSubSaving(true);
+    try {
+      const res = await fetch(`/api/children/${child.id}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ firstName: coreForm.firstName, lastName: coreForm.lastName, birthDate: coreForm.birthDate }),
+      });
+      if (res.ok) { setCore({ ...core, ...coreForm }); setCoreEdit(false); }
+      else setSaveError('Stammdaten konnten nicht gespeichert werden.');
+    } finally { setSubSaving(false); }
+  };
+
+  // Notfallkontakte (Eltern) bearbeiten
+  const [parentsState, setParentsState] = useState<any[]>(child.parents || []);
+  const [contactForm, setContactForm] = useState<any>(null); // {id, firstName, lastName, phone}
+  const saveContact = async () => {
+    if (!contactForm) return;
+    setSubSaving(true);
+    try {
+      const res = await fetch(`/api/parents/${contactForm.id}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ firstName: contactForm.firstName, lastName: contactForm.lastName, phone: contactForm.phone }),
+      });
+      if (res.ok) {
+        const upd = await res.json();
+        setParentsState(ps => ps.map(p => p.id === upd.id ? { ...p, ...upd } : p));
+        setContactForm(null);
+      } else setSaveError('Kontakt konnte nicht gespeichert werden.');
+    } finally { setSubSaving(false); }
+  };
 
   const openEdit = () => {
     setForm({
@@ -229,7 +268,6 @@ export default function ChildDossier({ child, activitiesBase, editable = false }
     }
   };
 
-  const parents: any[] = child.parents || [];
   const documents: any[] = child.documents || [];
   const contracts: any[] = child.contracts || [];
   const attendance: any[] = child.attendance || [];
@@ -245,40 +283,78 @@ export default function ChildDossier({ child, activitiesBase, editable = false }
     <div className="space-y-6">
       {/* Stammdaten */}
       <section className="card p-6 sm:p-8">
-        <p className="eyebrow mb-4">👤 Stammdaten</p>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <Field label="Geburtsdatum" value={fmtDate(child.birthDate)} />
-          <Field label="Alter" value={`${calcAge(child.birthDate)} Jahre`} />
-          <Field label="Standort" value={child.location?.name} />
-          <Field label="Aufgenommen" value={fmtDate(child.createdAt)} />
+        <div className="flex items-center justify-between mb-4 gap-3">
+          <p className="eyebrow">👤 Stammdaten</p>
+          {editable && !coreEdit && (
+            <button onClick={() => { setCoreForm({ firstName: core.firstName, lastName: core.lastName, birthDate: dateInput(core.birthDate) }); setCoreEdit(true); }} className="btn btn-secondary btn-sm">✏️ Bearbeiten</button>
+          )}
         </div>
+        {coreEdit ? (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div><label className="label">Vorname</label><input className="input" value={coreForm.firstName} onChange={e => setCoreForm({ ...coreForm, firstName: e.target.value })} /></div>
+            <div><label className="label">Nachname</label><input className="input" value={coreForm.lastName} onChange={e => setCoreForm({ ...coreForm, lastName: e.target.value })} /></div>
+            <div><label className="label">Geburtsdatum</label><input type="date" className="input" value={coreForm.birthDate} onChange={e => setCoreForm({ ...coreForm, birthDate: e.target.value })} /></div>
+            <div className="sm:col-span-3 flex justify-end gap-2">
+              <button onClick={() => setCoreEdit(false)} className="btn btn-secondary btn-sm" disabled={subSaving}>Abbrechen</button>
+              <button onClick={saveCore} className="btn btn-primary btn-sm" disabled={subSaving}>{subSaving ? '…' : 'Speichern'}</button>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <Field label="Name" value={`${core.firstName} ${core.lastName}`} />
+            <Field label="Geburtsdatum" value={fmtDate(core.birthDate)} />
+            <Field label="Alter" value={`${calcAge(core.birthDate)} Jahre`} />
+            <Field label="Standort" value={child.location?.name} />
+          </div>
+        )}
       </section>
 
       {/* Eltern & Kontakte */}
       <section className="card p-6 sm:p-8">
         <p className="eyebrow mb-4">👪 Eltern & Notfallkontakte</p>
-        {parents.length === 0 ? (
+        {parentsState.length === 0 ? (
           <p className="text-sm text-secondary-500">Keine Kontakte hinterlegt.</p>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {parents.map((p) => (
-              <div key={p.id} className="surface p-4 flex flex-col gap-2">
-                <div>
-                  <p className="font-semibold text-secondary-900">{p.firstName} {p.lastName}</p>
-                  <p className="text-sm text-secondary-600 break-words">✉️ {p.email}</p>
-                  {p.phone && <p className="text-sm text-secondary-600">📞 {p.phone}</p>}
+            {parentsState.map((p) => {
+              const canEditContact = editable && (isStaff || viewerEmail === p.email);
+              const isEditingThis = contactForm?.id === p.id;
+              return (
+                <div key={p.id} className="surface p-4 flex flex-col gap-2">
+                  {isEditingThis ? (
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <input className="input" value={contactForm.firstName} onChange={e => setContactForm({ ...contactForm, firstName: e.target.value })} placeholder="Vorname" />
+                        <input className="input" value={contactForm.lastName} onChange={e => setContactForm({ ...contactForm, lastName: e.target.value })} placeholder="Nachname" />
+                      </div>
+                      <input className="input" value={contactForm.phone} onChange={e => setContactForm({ ...contactForm, phone: e.target.value })} placeholder="📞 Telefon" />
+                      <div className="flex justify-end gap-2">
+                        <button onClick={() => setContactForm(null)} className="btn btn-secondary btn-sm" disabled={subSaving}>Abbrechen</button>
+                        <button onClick={saveContact} className="btn btn-primary btn-sm" disabled={subSaving}>{subSaving ? '…' : 'Speichern'}</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div>
+                        <p className="font-semibold text-secondary-900">{p.firstName} {p.lastName}</p>
+                        <p className="text-sm text-secondary-600 break-words">✉️ {p.email}</p>
+                        {p.phone && <p className="text-sm text-secondary-600">📞 {p.phone}</p>}
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {canEditContact && (
+                          <button onClick={() => setContactForm({ id: p.id, firstName: p.firstName, lastName: p.lastName, phone: p.phone || '' })} className="btn btn-secondary btn-sm">✏️ Kontakt bearbeiten</button>
+                        )}
+                        {isStaff && (
+                          <button onClick={() => resendInvite(p.email)} disabled={invitingEmail === p.email} className="btn btn-secondary btn-sm">
+                            {invitingEmail === p.email ? 'Sendet…' : '✉️ Einladung senden'}
+                          </button>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </div>
-                {editable && (
-                  <button
-                    onClick={() => resendInvite(p.email)}
-                    disabled={invitingEmail === p.email}
-                    className="btn btn-secondary btn-sm self-start"
-                  >
-                    {invitingEmail === p.email ? 'Sendet…' : '✉️ Einladung senden'}
-                  </button>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </section>

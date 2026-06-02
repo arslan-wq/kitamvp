@@ -125,7 +125,7 @@ export default function ChildDetailPage({ params }: { params: { id: string } }) 
       </div>
 
       {/* Komplettes Dossier des Kindes */}
-      <ChildDossier child={child} activitiesBase="/api/activities" editable />
+      <ChildDossier child={child} activitiesBase="/api/activities" editable isStaff />
     </div>
   );
 }

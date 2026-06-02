@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import ChildDossier from '@/components/ChildDossier';
 import ChildPhotoEditor from '@/components/ChildPhotoEditor';
@@ -20,6 +21,7 @@ interface Child {
 
 export default function ChildDetailPage() {
   const { childId } = useParams();
+  const { data: session } = useSession();
   const [child, setChild] = useState<Child | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -85,7 +87,13 @@ export default function ChildDetailPage() {
       </div>
 
       {/* Komplettes Dossier des Kindes */}
-      <ChildDossier child={child} activitiesBase="/api/parent/activities" />
+      <ChildDossier
+        child={child}
+        activitiesBase="/api/parent/activities"
+        editable
+        isStaff={false}
+        viewerEmail={(session?.user as any)?.email || null}
+      />
     </div>
   );
 }

@@ -2,27 +2,29 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { resolveChildAccess } from '@/lib/childAccess';
 
-// DELETE /api/allergies/[id] — Allergie entfernen (nur Personal der gleichen KiTA)
+// DELETE /api/allergies/[id] — Allergie entfernen (Personal der KiTA ODER Eltern des Kindes)
 export async function DELETE(
   _request: Request,
   { params }: { params: { id: string } }
 ) {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.kitaId) {
+  if (!session?.user?.email) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-  const role = (session.user as any).role;
-  if (!['ADMIN', 'KITA_LEITER', 'BETREUER'].includes(role)) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   const allergy = await prisma.allergy.findUnique({
     where: { id: params.id },
-    include: { child: { select: { kitaId: true } } },
+    select: { id: true, childId: true },
   });
-  if (!allergy || allergy.child.kitaId !== session.user.kitaId) {
+  if (!allergy) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+
+  const access = await resolveChildAccess(session.user.email, allergy.childId);
+  if (!access.allowed) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   await prisma.allergy.delete({ where: { id: params.id } });
