@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
       // Parent user - get messages about their enrolled children + announcements
       const parent = await prisma.parent.findUnique({
         where: { id: user.id },
-        select: { children: { select: { id: true } } },
+        select: { children: { select: { id: true, locationId: true } } },
       });
 
       if (!parent || !parent.children.length) {
@@ -52,11 +52,13 @@ export async function GET(request: NextRequest) {
       }
 
       const childIds = parent.children.map(c => c.id);
+      const locationIds = parent.children.map(c => c.locationId).filter(Boolean) as string[];
 
-      // Get threads about parent's children OR announcements
+      // Threads über eigene Kinder ODER Ankündigungen (an alle ODER an einen Standort des Kindes)
       filter.OR = [
         { childId: { in: childIds } },
-        { childId: null, isAnnouncement: true },
+        { isAnnouncement: true, locationId: null },
+        ...(locationIds.length ? [{ isAnnouncement: true, locationId: { in: locationIds } }] : []),
       ];
     } else {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
@@ -83,6 +85,7 @@ export async function GET(request: NextRequest) {
             lastName: true,
           },
         },
+        location: { select: { id: true, name: true } },
         _count: {
           select: { messages: true },
         },
@@ -97,6 +100,8 @@ export async function GET(request: NextRequest) {
       title: thread.title,
       childId: thread.childId,
       childName: thread.child ? `${thread.child.firstName} ${thread.child.lastName}` : null,
+      locationId: thread.locationId,
+      locationName: thread.location?.name || null,
       startedBy: thread.startedByName,
       startedByRole: thread.startedByRole,
       isAnnouncement: thread.isAnnouncement,
@@ -152,6 +157,7 @@ export async function POST(request: NextRequest) {
       isAnnouncement = false,
       attachments = [],
     } = data;
+    let locationId = data.locationId || null;
 
     if (!content) {
       return NextResponse.json(
@@ -173,12 +179,35 @@ export async function POST(request: NextRequest) {
           { status: 403 }
         );
       }
+      locationId = null; // Kind-Threads tragen keinen Standort-Broadcast
+    }
+
+    // Standort-Berechtigung für Ankündigungen
+    if (isAnnouncement && !childId) {
+      if (user.role === 'ADMIN') {
+        if (locationId) {
+          const loc = await prisma.location.findFirst({ where: { id: locationId, kitaId: user.kitaId } });
+          if (!loc) return NextResponse.json({ error: 'Standort nicht gefunden' }, { status: 400 });
+        }
+        // locationId null = an alle Standorte (nur Admin)
+      } else {
+        // KITA_LEITER / BETREUER dürfen nur an den EIGENEN Standort senden
+        const dbUser = await prisma.user.findUnique({ where: { id: user.id }, select: { locationId: true } });
+        if (!dbUser?.locationId) {
+          return NextResponse.json({ error: 'Ihnen ist kein Standort zugewiesen — Ankündigung nicht möglich.' }, { status: 403 });
+        }
+        if (locationId && locationId !== dbUser.locationId) {
+          return NextResponse.json({ error: 'Sie dürfen nur an Ihren eigenen Standort senden.' }, { status: 403 });
+        }
+        locationId = dbUser.locationId; // erzwingen
+      }
     }
 
     // Create thread with initial message
     const thread = await prisma.messageThread.create({
       data: {
         kitaId: user.kitaId,
+        locationId,
         childId: childId || null,
         title,
         startedBy: user.id,

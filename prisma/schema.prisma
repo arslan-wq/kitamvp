@@ -255,6 +255,8 @@ model MessageThread {
   kita        KiTA     @relation("KiTAThreads", fields: [kitaId], references: [id], onDelete: Cascade)
   childId     String?  // NULL = general announcement/message
   child       Child?   @relation("ChildThreads", fields: [childId], references: [id], onDelete: SetNull)
+  locationId  String?  // Standort-Ziel einer Ankündigung (NULL bei Ankündigung = alle)
+  location    Location? @relation("LocationThreads", fields: [locationId], references: [id], onDelete: SetNull)
 
   // Thread metadata
   title       String?  // Optional title for the thread
@@ -549,6 +551,7 @@ model Location {
   staff           String[]  // User IDs of assigned staff
   users           User[]    // Staff assigned to this location
   children        Child[]   // Children assigned to this location
+  messageThreads  MessageThread[] @relation("LocationThreads")
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 

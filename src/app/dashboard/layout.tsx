@@ -19,7 +19,7 @@ export default function DashboardLayout({
       { label: '📊 Aktivitäten', href: '/dashboard/activities' },
       { label: '👶 Kinder', href: '/dashboard/children' },
       { label: '📅 Belegungsplanung', href: '/dashboard/schedule' },
-      { label: '💬 Nachrichten', href: '/dashboard/messages' },
+      { label: '💬 Nachrichten', href: '/dashboard/messaging' },
       { label: '🏥 Medizinische Info', href: '/dashboard/medical-records' },
       { label: '📍 Standorte', href: '/dashboard/locations' },
       { label: '🖼️ Fotos & Dokumente', href: '/dashboard/documents' },
