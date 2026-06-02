@@ -7,6 +7,7 @@ interface Child {
   id: string;
   firstName: string;
   lastName: string;
+  photoUrl?: string | null;
 }
 
 const ACTIVITY_TYPES = [
@@ -246,17 +247,24 @@ export default function ActivityLogger() {
       </form>
 
       {/* Recent Activities */}
-      <RecentActivities childId={formData.childId} refreshKey={refreshKey} canManage={canManage} />
+      <RecentActivities
+        childId={formData.childId}
+        child={children.find(c => c.id === formData.childId)}
+        refreshKey={refreshKey}
+        canManage={canManage}
+      />
     </div>
   );
 }
 
 function RecentActivities({
   childId,
+  child,
   refreshKey,
   canManage,
 }: {
   childId: string;
+  child?: Child;
   refreshKey: number;
   canManage: boolean;
 }) {
@@ -353,7 +361,21 @@ function RecentActivities({
 
   return (
     <div className="card p-8">
-      <h2 className="text-2xl font-bold text-secondary-900 mb-6">📊 Aktivitätsprotokoll</h2>
+      <div className="flex items-center gap-3 mb-6">
+        {child && (
+          <div className="avatar avatar-md overflow-hidden">
+            {child.photoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={child.photoUrl} alt="" className="w-full h-full object-cover" />
+            ) : (
+              `${child.firstName.charAt(0)}${child.lastName.charAt(0)}`.toUpperCase()
+            )}
+          </div>
+        )}
+        <h2 className="text-2xl font-bold text-secondary-900">
+          📊 Aktivitätsprotokoll{child ? ` · ${child.firstName} ${child.lastName}` : ''}
+        </h2>
+      </div>
 
       {activities.length === 0 ? (
         <p className="text-secondary-500 text-center py-8">Noch keine Aktivitäten für dieses Kind</p>

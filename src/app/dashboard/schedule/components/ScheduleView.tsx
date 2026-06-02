@@ -20,7 +20,7 @@ interface Booking {
   dayType: string;
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
   notes?: string;
-  child: { id: string; firstName: string; lastName: string; locationId: string | null };
+  child: { id: string; firstName: string; lastName: string; locationId: string | null; photoUrl?: string | null };
 }
 
 interface Location {
@@ -202,6 +202,16 @@ export default function ScheduleView() {
 
   const attByChild = (childId: string) => attendance.find(a => a.childId === childId);
   const initials = (f: string, l: string) => `${f.charAt(0)}${l.charAt(0)}`.toUpperCase();
+  const avatarEl = (c: Booking['child']) => (
+    <div className="avatar avatar-md overflow-hidden">
+      {c.photoUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={c.photoUrl} alt="" className="w-full h-full object-cover" />
+      ) : (
+        initials(c.firstName, c.lastName)
+      )}
+    </div>
+  );
   const fmtTime = (t: string) =>
     new Date(t).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' });
   const fmtRange = (b: Booking) =>
@@ -303,7 +313,7 @@ export default function ScheduleView() {
           <div className="space-y-2">
             {pending.map(b => (
               <div key={b.id} className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 surface">
-                <div className="avatar avatar-md">{initials(b.child.firstName, b.child.lastName)}</div>
+                {avatarEl(b.child)}
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-secondary-900">{b.child.firstName} {b.child.lastName}</p>
                   <p className="text-sm text-secondary-500">
@@ -351,7 +361,7 @@ export default function ScheduleView() {
                     return (
                       <div key={b.childId} className="surface p-4 flex flex-col gap-3">
                         <div className="flex items-center gap-3">
-                          <div className="avatar avatar-md">{initials(b.child.firstName, b.child.lastName)}</div>
+                          {avatarEl(b.child)}
                           <div className="min-w-0 flex-1">
                             <p className="font-semibold text-secondary-900 truncate">{b.child.firstName} {b.child.lastName}</p>
                             <span className="chip chip-primary mt-0.5">{DAY_TYPE_LABELS[b.dayType]}</span>
