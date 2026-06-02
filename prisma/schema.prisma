@@ -88,6 +88,7 @@ model User {
   locationId String?
   location   Location?  @relation(fields: [locationId], references: [id])
   workingHours String?  // Arbeitszeiten, z.B. "Mo-Fr 08:00-17:00"
+  photoUrl   String?    @db.Text // Profilfoto (Data-URL, klein verkleinert)
   shifts     Shift[]    @relation("UserShifts")
   resetToken       String?   @unique
   resetTokenExpiry DateTime?
@@ -163,6 +164,7 @@ model Parent {
   firstName     String
   lastName      String
   phone         String
+  photoUrl      String?                @db.Text // Profilfoto (Data-URL, klein verkleinert)
   children      Child[]                @relation("ChildParents")
   deviceTokens  ParentDeviceToken[]    @relation("ParentTokens")
   resetToken       String?   @unique

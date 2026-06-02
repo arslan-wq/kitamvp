@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import Link from 'next/link';
 import NotificationBell from '@/components/NotificationBell';
+import HeaderProfile from '@/components/HeaderProfile';
 
 export default function DashboardLayout({
   children,
@@ -104,7 +105,8 @@ export default function DashboardLayout({
             {/* Mobile Menu Button */}
             <div className="flex items-center gap-2 sm:gap-3">
               <NotificationBell />
-              <span className="chip chip-neutral max-w-[12rem] hidden sm:inline-flex">
+              <HeaderProfile href="/dashboard/profil" fallback={(session.user?.name || session.user?.email || '?').charAt(0).toUpperCase()} />
+              <span className="chip chip-neutral max-w-[10rem] hidden sm:inline-flex">
                 <span className="truncate-1">{session.user?.email}</span>
               </span>
               <button

@@ -3,6 +3,7 @@ import { authOptions } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import NotificationBell from '@/components/NotificationBell';
+import HeaderProfile from '@/components/HeaderProfile';
 
 export default async function ParentLayout({
   children,
@@ -53,7 +54,8 @@ export default async function ParentLayout({
             {/* Right */}
             <div className="flex items-center gap-2 sm:gap-3">
               <NotificationBell />
-              <span className="chip chip-neutral max-w-[12rem] hidden sm:inline-flex">
+              <HeaderProfile href="/profil" fallback={(session.user?.name || '?').charAt(0).toUpperCase()} />
+              <span className="chip chip-neutral max-w-[10rem] hidden sm:inline-flex">
                 <span className="truncate-1">{session.user?.name}</span>
               </span>
               <a href="/api/auth/signout" className="btn btn-secondary btn-sm">Abmelden</a>

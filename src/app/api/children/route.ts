@@ -35,13 +35,23 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { firstName, lastName, birthDate, parentEmail, locationId } = body;
+    const { firstName, lastName, birthDate, parentEmail, locationId, photoUrl } = body;
 
     if (!parentEmail) {
       return NextResponse.json(
         { error: 'Parent email is required' },
         { status: 400 }
       );
+    }
+
+    // Profilfoto validieren (wenn mitgesendet)
+    if (photoUrl !== undefined && photoUrl !== null) {
+      if (typeof photoUrl !== 'string' || !photoUrl.startsWith('data:image/')) {
+        return NextResponse.json({ error: 'Nur Bilddateien erlaubt' }, { status: 400 });
+      }
+      if (photoUrl.length > 700_000) {
+        return NextResponse.json({ error: 'Bild zu groß (max. ~500 KB)' }, { status: 413 });
+      }
     }
 
     const kitaId = (session.user as any).kitaId;
@@ -83,6 +93,7 @@ export async function POST(request: NextRequest) {
         birthDate: new Date(birthDate),
         kitaId,
         ...(locationId && { locationId }),
+        ...(photoUrl && { photoUrl }),
         parents: {
           connect: [{ id: parent.id }],
         },

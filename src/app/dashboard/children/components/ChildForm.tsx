@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import ChildPhotoEditor from '@/components/ChildPhotoEditor';
+import { resizeToSquare } from '@/lib/image';
 
 interface ChildFormProps {
   initialData?: {
@@ -35,6 +36,16 @@ export default function ChildForm({ initialData, isEditing = false, childId }: C
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [photo, setPhoto] = useState<string | null>(initialData?.photoUrl || null);
+  const photoRef = useRef<HTMLInputElement>(null);
+
+  const pickPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    e.target.value = '';
+    if (!f) return;
+    if (!f.type.startsWith('image/')) { setError('Bitte eine Bilddatei wählen'); return; }
+    try { setPhoto(await resizeToSquare(f)); setError(''); } catch { setError('Bild konnte nicht verarbeitet werden'); }
+  };
 
   useEffect(() => {
     fetch('/api/locations')
@@ -52,6 +63,11 @@ export default function ChildForm({ initialData, isEditing = false, childId }: C
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    // Pflicht-Profilfoto beim Anlegen
+    if (!isEditing && !photo) {
+      setError('Bitte ein Profilfoto hochladen.');
+      return;
+    }
     setLoading(true);
     setError('');
     setSuccess('');
@@ -70,7 +86,7 @@ export default function ChildForm({ initialData, isEditing = false, childId }: C
                   birthDate: formData.birthDate,
                   locationId: formData.locationId || null,
                 }
-              : { ...formData, locationId: formData.locationId || undefined }
+              : { ...formData, locationId: formData.locationId || undefined, photoUrl: photo }
           ),
         }
       );
@@ -130,21 +146,25 @@ export default function ChildForm({ initialData, isEditing = false, childId }: C
                 />
               </div>
             ) : (
-              <div className="flex items-center gap-4">
-                <div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-white text-xl font-bold text-primary-600 shadow-sm shrink-0">
-                  {initials}
-                </div>
-                <div className="min-w-0">
-                  <p className="font-semibold text-secondary-900 truncate">
-                    {formData.firstName || formData.lastName
-                      ? `${formData.firstName} ${formData.lastName}`.trim()
-                      : 'Neues Kind'}
-                  </p>
-                  <p className="text-sm text-secondary-500">
-                    {formData.birthDate
-                      ? new Date(formData.birthDate).toLocaleDateString('de-CH')
-                      : 'Stammdaten erfassen'}
-                  </p>
+              <div>
+                <p className="eyebrow mb-3">Profilfoto <span className="text-red-500">*</span></p>
+                <div className="flex items-center gap-4">
+                  <div className="w-20 h-20 rounded-full overflow-hidden bg-white text-2xl font-bold text-primary-600 shadow-sm flex items-center justify-center shrink-0">
+                    {photo ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={photo} alt="Profilfoto" className="w-full h-full object-cover" />
+                    ) : initials}
+                  </div>
+                  <div className="space-y-1.5">
+                    <div className="flex flex-wrap gap-2">
+                      <button type="button" onClick={() => photoRef.current?.click()} className="btn btn-secondary btn-sm">
+                        {photo ? '📷 Foto ändern' : '📷 Foto hochladen'}
+                      </button>
+                      {photo && <button type="button" onClick={() => setPhoto(null)} className="btn btn-sm text-red-600 hover:bg-red-50">Entfernen</button>}
+                    </div>
+                    <p className="text-xs text-secondary-500">Pflichtfeld · wird automatisch verkleinert</p>
+                  </div>
+                  <input ref={photoRef} type="file" accept="image/*" className="hidden" onChange={pickPhoto} />
                 </div>
               </div>
             )}

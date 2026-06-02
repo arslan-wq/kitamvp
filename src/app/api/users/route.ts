@@ -54,12 +54,12 @@ export async function GET() {
 
   return NextResponse.json({
     staff: staff.map((u) => ({
-      id: u.id, email: u.email, name: u.name, role: u.role,
-      location: u.location, createdAt: u.createdAt,
+      id: u.id, email: u.email, name: u.name, role: u.role, photoUrl: u.photoUrl,
+      locationId: u.locationId, location: u.location, createdAt: u.createdAt,
     })),
     parents: parents.map((p) => ({
       id: p.id, email: p.email, firstName: p.firstName, lastName: p.lastName, phone: p.phone,
-      children: p.children, createdAt: p.createdAt,
+      photoUrl: p.photoUrl, children: p.children, createdAt: p.createdAt,
     })),
   });
 }
@@ -85,6 +85,15 @@ export async function POST(request: Request) {
 
   const tempPw = await bcrypt.hash(crypto.randomBytes(12).toString('hex'), 10);
 
+  // Profilfoto validieren (Pflicht beim Anlegen)
+  const photoUrl = body.photoUrl;
+  if (!photoUrl || typeof photoUrl !== 'string' || !photoUrl.startsWith('data:image/')) {
+    return NextResponse.json({ error: 'Profilfoto ist erforderlich' }, { status: 400 });
+  }
+  if (photoUrl.length > 700_000) {
+    return NextResponse.json({ error: 'Bild zu groß (max. ~500 KB)' }, { status: 413 });
+  }
+
   if (type === 'staff') {
     const { name, role, locationId } = body;
     if (!name || !role) return NextResponse.json({ error: 'Name und Rolle erforderlich' }, { status: 400 });
@@ -98,6 +107,7 @@ export async function POST(request: Request) {
         email, name, role, password: tempPw,
         kitaId: manager.kitaId,
         locationId: locationId || null,
+        photoUrl,
       },
     });
     await sendSetPasswordMail('user', created.id, email, name);
@@ -108,7 +118,7 @@ export async function POST(request: Request) {
     const { firstName, lastName, phone } = body;
     if (!firstName || !lastName) return NextResponse.json({ error: 'Vor- und Nachname erforderlich' }, { status: 400 });
     const created = await prisma.parent.create({
-      data: { email, firstName, lastName, phone: phone || '', password: tempPw },
+      data: { email, firstName, lastName, phone: phone || '', password: tempPw, photoUrl },
     });
     await sendSetPasswordMail('parent', created.id, email, `${firstName} ${lastName}`);
     return NextResponse.json({ id: created.id, email, firstName, lastName }, { status: 201 });
