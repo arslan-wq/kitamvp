@@ -68,7 +68,7 @@ export default function MessageView() {
       if (!response.ok) throw new Error('Failed to send message');
       const data = await response.json();
 
-      setMessages([data, ...messages]);
+      setMessages([...messages, data]);
       setNewMessage('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
