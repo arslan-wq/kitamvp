@@ -343,6 +343,65 @@ export default function ScheduleView() {
           {Array.from(groups.entries()).map(([key, items]) => {
             const name = key === '__none__' ? 'Ohne Standort' : locName(key);
             const cap = key === '__none__' ? null : locations.find(l => l.id === key)?.capacity;
+
+            // Anwesend = eingecheckt und noch nicht abgeholt. Abwesend = noch nicht da ODER schon abgeholt.
+            const present = items.filter(b => {
+              const att = attByChild(b.childId);
+              return att?.checkInTime && !att?.checkOutTime;
+            });
+            const absent = items.filter(b => !present.includes(b));
+
+            const renderCard = (b: Booking) => {
+              const att = attByChild(b.childId);
+              const checkedIn = att?.checkInTime && !att?.checkOutTime;
+              const checkedOut = att?.checkOutTime;
+              return (
+                <div key={b.childId} className="bg-white rounded-2xl border border-secondary-100 p-4 flex flex-col gap-3">
+                  <div className="flex items-center gap-3">
+                    {avatarEl(b.child)}
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-secondary-900 truncate">{b.child.firstName} {b.child.lastName}</p>
+                      <span className="chip chip-primary mt-0.5">{DAY_TYPE_LABELS[b.dayType]}</span>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button onClick={() => review(b.id, 'PENDING')}
+                        disabled={actionLoading === b.id}
+                        title="Annahme rückgängig machen"
+                        className="btn-icon w-7 h-7 text-secondary-400 hover:bg-yellow-50 hover:text-yellow-700">↩</button>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between text-sm gap-2">
+                    <span className="text-secondary-500 min-w-0 truncate">
+                      {att?.checkInTime ? `Ankunft ${fmtTime(att.checkInTime)}` : 'Noch nicht angekommen'}
+                      {checkedOut ? ` · Abgang ${fmtTime(att.checkOutTime)}` : ''}
+                    </span>
+                    <div className="flex gap-1.5 shrink-0">
+                      {!att?.checkInTime && (
+                        <button onClick={() => attendanceAction(b.childId, 'checkin')}
+                          disabled={actionLoading === b.childId + 'checkin'}
+                          className="btn btn-primary btn-sm">✅ Ankunft</button>
+                      )}
+                      {checkedIn && (
+                        <>
+                          <button onClick={() => undoAttendance(b.childId, 'checkin')}
+                            disabled={actionLoading === b.childId + 'undocheckin'}
+                            title="Ankunft rückgängig" className="btn btn-secondary btn-sm">↩</button>
+                          <button onClick={() => attendanceAction(b.childId, 'checkout')}
+                            disabled={actionLoading === b.childId + 'checkout'}
+                            className="btn btn-secondary btn-sm">🚪 Abgang</button>
+                        </>
+                      )}
+                      {checkedOut && (
+                        <button onClick={() => undoAttendance(b.childId, 'checkout')}
+                          disabled={actionLoading === b.childId + 'undocheckout'}
+                          title="Abholung rückgängig" className="btn btn-secondary btn-sm">↩ Abgang</button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            };
+
             return (
               <div key={key} className="card p-6">
                 <div className="flex items-center justify-between mb-4">
@@ -350,62 +409,40 @@ export default function ScheduleView() {
                     📍 {name}
                   </h3>
                   <span className="chip chip-neutral">
-                    {items.length}{cap ? ` / ${cap}` : ''} Kinder
+                    {present.length} anwesend · {items.length}{cap ? ` / ${cap}` : ''} erwartet
                   </span>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                  {items.map(b => {
-                    const att = attByChild(b.childId);
-                    const checkedIn = att?.checkInTime && !att?.checkOutTime;
-                    const checkedOut = att?.checkOutTime;
-                    return (
-                      <div key={b.childId} className="bg-white rounded-2xl border border-secondary-100 p-4 flex flex-col gap-3">
-                        <div className="flex items-center gap-3">
-                          {avatarEl(b.child)}
-                          <div className="min-w-0 flex-1">
-                            <p className="font-semibold text-secondary-900 truncate">{b.child.firstName} {b.child.lastName}</p>
-                            <span className="chip chip-primary mt-0.5">{DAY_TYPE_LABELS[b.dayType]}</span>
-                          </div>
-                          {/* Akzeptiert-Chip mit Rückgängig */}
-                          <div className="flex items-center gap-1 shrink-0">
-                            <span className="chip chip-success">Akzeptiert</span>
-                            <button onClick={() => review(b.id, 'PENDING')}
-                              disabled={actionLoading === b.id}
-                              title="Annahme rückgängig machen"
-                              className="btn-icon w-7 h-7 text-secondary-400 hover:bg-yellow-50 hover:text-yellow-700">↩</button>
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between text-sm gap-2">
-                          <span className="text-secondary-500 min-w-0 truncate">
-                            {att?.checkInTime ? `Ankunft ${fmtTime(att.checkInTime)}` : 'Noch nicht angekommen'}
-                            {checkedOut ? ` · Abgang ${fmtTime(att.checkOutTime)}` : ''}
-                          </span>
-                          <div className="flex gap-1.5 shrink-0">
-                            {!att?.checkInTime && (
-                              <button onClick={() => attendanceAction(b.childId, 'checkin')}
-                                disabled={actionLoading === b.childId + 'checkin'}
-                                className="btn btn-primary btn-sm">✅ Ankunft</button>
-                            )}
-                            {checkedIn && (
-                              <>
-                                <button onClick={() => undoAttendance(b.childId, 'checkin')}
-                                  disabled={actionLoading === b.childId + 'undocheckin'}
-                                  title="Ankunft rückgängig" className="btn btn-secondary btn-sm">↩</button>
-                                <button onClick={() => attendanceAction(b.childId, 'checkout')}
-                                  disabled={actionLoading === b.childId + 'checkout'}
-                                  className="btn btn-secondary btn-sm">🚪 Abgang</button>
-                              </>
-                            )}
-                            {checkedOut && (
-                              <button onClick={() => undoAttendance(b.childId, 'checkout')}
-                                disabled={actionLoading === b.childId + 'undocheckout'}
-                                title="Abholung rückgängig" className="btn btn-secondary btn-sm">↩ Abgang</button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
+
+                {/* Zone: Anwesend (oben) */}
+                <div className="rounded-2xl bg-primary-50/60 border border-primary-100 p-3 mb-3">
+                  <div className="flex items-center gap-2 mb-3 px-1">
+                    <span className="w-2.5 h-2.5 rounded-full bg-primary-500" />
+                    <p className="font-semibold text-primary-800 text-sm">✅ Anwesend</p>
+                    <span className="chip chip-success">{present.length}</span>
+                  </div>
+                  {present.length === 0 ? (
+                    <p className="text-sm text-secondary-400 text-center py-3">Noch niemand angekommen</p>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                      {present.map(renderCard)}
+                    </div>
+                  )}
+                </div>
+
+                {/* Zone: Abwesend (unten) */}
+                <div className="rounded-2xl bg-secondary-50 border border-secondary-100 p-3">
+                  <div className="flex items-center gap-2 mb-3 px-1">
+                    <span className="w-2.5 h-2.5 rounded-full bg-secondary-300" />
+                    <p className="font-semibold text-secondary-600 text-sm">🏠 Abwesend</p>
+                    <span className="chip chip-neutral">{absent.length}</span>
+                  </div>
+                  {absent.length === 0 ? (
+                    <p className="text-sm text-secondary-400 text-center py-3">Alle erwarteten Kinder sind da 🎉</p>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                      {absent.map(renderCard)}
+                    </div>
+                  )}
                 </div>
               </div>
             );
