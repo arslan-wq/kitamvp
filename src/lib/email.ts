@@ -158,6 +158,32 @@ export async function sendNewMessageEmail(
   return response;
 }
 
+export async function sendDailyReportEmail(
+  to: string,
+  opts: { parentName?: string; childName: string; dateLabel: string }
+) {
+  const base = process.env.NEXT_PUBLIC_APP_URL || '';
+  const link = `${base}/daily-reports`;
+  const subject = `Tagesbericht für ${opts.childName} – ${opts.dateLabel}`;
+  const html = `
+    <div style="max-width:600px;margin:0 auto;font-family:Arial,sans-serif;color:#1d1d1f">
+      <div style="background:#458052;color:#fff;padding:28px;text-align:center;border-radius:16px 16px 0 0">
+        <h1 style="margin:0;font-size:22px">📋 Neuer Tagesbericht</h1>
+      </div>
+      <div style="background:#f5f5f7;padding:28px;border-radius:0 0 16px 16px">
+        <p>Hallo${opts.parentName ? ' ' + opts.parentName : ''},</p>
+        <p>für <strong>${opts.childName}</strong> wurde ein neuer Tagesbericht vom <strong>${opts.dateLabel}</strong> erfasst.</p>
+        <p style="text-align:center;margin:24px 0">
+          <a href="${link}" style="display:inline-block;background:#458052;color:#fff;padding:12px 28px;text-decoration:none;border-radius:12px;font-weight:bold">Tagesbericht ansehen →</a>
+        </p>
+        <p style="color:#6e6e73;font-size:12px;margin-top:24px">KitaLuna – Eltern Portal</p>
+      </div>
+    </div>`;
+  const response = await resend.emails.send({ from: FROM_EMAIL, to, subject, html });
+  if (response.error) throw new Error(response.error.message || 'Resend error');
+  return response;
+}
+
 export async function sendWelcomeEmail(parentEmail: string, firstName: string) {
   try {
     const response = await resend.emails.send({

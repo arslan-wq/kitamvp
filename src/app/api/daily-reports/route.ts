@@ -1,6 +1,7 @@
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
+import { sendDailyReportEmail } from '@/lib/email';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
@@ -29,64 +30,60 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Access denied' }, { status: 403 });
   }
 
-  // Build where clause
-  let where: any = {};
+  // Build where clause — immer mandantengescoped
+  const where: any = {};
 
+  if (isStaff?.kitaId) {
+    where.kitaId = isStaff.kitaId;
+  } else if (isParent) {
+    // Eltern: nur Berichte ihrer eigenen Kinder
+    const parent = await prisma.parent.findUnique({
+      where: { email: session.user.email },
+      include: { children: { select: { id: true } } },
+    });
+    const ids = parent?.children.map(c => c.id) || [];
+    where.childId = { in: ids };
+  } else {
+    return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+  }
+
+  // Optionaler Kind-Filter (für Eltern zusätzlich Eigentumsprüfung)
   if (childId) {
-    where.childId = childId;
-
-    // For parents, verify they have access to this child
-    if (isParent) {
+    if (isParent && !isStaff) {
       const child = await prisma.child.findUnique({
         where: { id: childId },
-        include: { parents: true },
+        include: { parents: { select: { email: true } } },
       });
-
-      const hasAccess = child?.parents.some(p => p.email === session.user.email);
-      if (!hasAccess) {
+      if (!child?.parents.some(p => p.email === session.user!.email)) {
         return NextResponse.json({ error: 'Access denied to this child' }, { status: 403 });
       }
     }
+    where.childId = childId;
+  }
 
-    // Filter by date range if specified
-    if (date) {
-      const d = new Date(date);
-      d.setHours(0, 0, 0, 0);
-      const nextDay = new Date(d);
-      nextDay.setDate(nextDay.getDate() + 1);
-
-      where.date = {
-        gte: d,
-        lt: nextDay,
-      };
-    } else if (startDate && endDate) {
-      const start = new Date(startDate);
-      start.setHours(0, 0, 0, 0);
-      const end = new Date(endDate);
-      end.setHours(23, 59, 59, 999);
-
-      where.date = {
-        gte: start,
-        lte: end,
-      };
-    } else {
-      // Default: last 30 days
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      thirtyDaysAgo.setHours(0, 0, 0, 0);
-
-      where.date = {
-        gte: thirtyDaysAgo,
-      };
-    }
+  // Datumsfilter
+  if (date) {
+    const d = new Date(date); d.setHours(0, 0, 0, 0);
+    const next = new Date(d); next.setDate(next.getDate() + 1);
+    where.date = { gte: d, lt: next };
+  } else if (startDate || endDate) {
+    where.date = {};
+    if (startDate) { const s = new Date(startDate); s.setHours(0, 0, 0, 0); where.date.gte = s; }
+    if (endDate) { const e = new Date(endDate); e.setHours(23, 59, 59, 999); where.date.lte = e; }
   }
 
   try {
     const reports = await prisma.dailyReport.findMany({
       where,
       orderBy: { date: 'desc' },
+      take: 500,
       include: {
-        child: { select: { firstName: true, lastName: true } },
+        child: {
+          select: {
+            id: true, firstName: true, lastName: true, photoUrl: true, locationId: true,
+            location: { select: { id: true, name: true } },
+          },
+        },
       },
     });
 
@@ -201,6 +198,25 @@ export async function POST(request: NextRequest) {
         notes,
       },
     });
+
+    // Eltern per E-Mail benachrichtigen
+    try {
+      const c = await prisma.child.findUnique({
+        where: { id: childId },
+        include: { parents: { select: { email: true, firstName: true } } },
+      });
+      if (c) {
+        const dateLabel = reportDate.toLocaleDateString('de-CH');
+        const childName = `${c.firstName} ${c.lastName}`;
+        await Promise.allSettled(
+          c.parents.map((p) =>
+            sendDailyReportEmail(p.email, { parentName: p.firstName, childName, dateLabel })
+          )
+        );
+      }
+    } catch (e) {
+      console.error('[daily-report] Eltern-Mail fehlgeschlagen:', e);
+    }
 
     return NextResponse.json(report, { status: 201 });
   } catch (error) {
