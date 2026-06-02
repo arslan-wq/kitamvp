@@ -2,6 +2,7 @@ import { getServerSession } from 'next-auth/next';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { createCancellationSchema } from '@/lib/validation';
+import { notifyResponsibleStaff } from '@/lib/staffNotify';
 
 export async function POST(request: Request) {
   try {
@@ -49,6 +50,18 @@ export async function POST(request: Request) {
         kitaId: user?.kitaId || child?.kitaId!,
       },
     });
+
+    // Eltern-Abmeldung → zuständiges Personal + Admins benachrichtigen
+    if (parent && child) {
+      await notifyResponsibleStaff({
+        kitaId: child.kitaId,
+        child: { firstName: child.firstName, lastName: child.lastName, locationId: child.locationId },
+        kind: 'Abmeldung',
+        periodLabel: new Date(data.date).toLocaleDateString('de-CH'),
+        parentName: `${parent.firstName} ${parent.lastName}`.trim(),
+        notes: data.reason,
+      });
+    }
 
     return NextResponse.json(cancellation, { status: 201 });
   } catch (error: any) {

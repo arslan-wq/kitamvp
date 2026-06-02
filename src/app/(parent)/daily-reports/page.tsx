@@ -35,6 +35,70 @@ export default function DailyReportsPage() {
   const [selectedChildId, setSelectedChildId] = useState<string>('');
   const [loading, setLoading] = useState(true);
 
+  // Eltern legen selbst einen Tagesbericht an — gleiches Format wie Personal
+  const MOODS = [
+    { v: 'happy', l: '😊 Fröhlich' }, { v: 'content', l: '🙂 Zufrieden' },
+    { v: 'tired', l: '😴 Müde' }, { v: 'grumpy', l: '😣 Quengelig' }, { v: 'sick', l: '🤒 Krank' },
+  ];
+  const MEAL_TYPES = [
+    { k: 'breakfast', l: 'Frühstück' }, { k: 'lunch', l: 'Mittagessen' }, { k: 'snack', l: 'Snack' },
+  ];
+  const moodLabel = (v?: string) => MOODS.find(m => m.v === v)?.l || v;
+  const mealLabel = (k?: string) => MEAL_TYPES.find(m => m.k === k)?.l || k;
+  const parseArr = (a?: string[]) => (Array.isArray(a) ? a.map(x => { try { return JSON.parse(x); } catch { return { text: x }; } }) : []);
+  const [showForm, setShowForm] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState('');
+  const nowLocal = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); };
+  const [form, setForm] = useState<any>({ date: '', mood: '', meals: [] as string[], notes: '' });
+
+  const loadReports = async (childId: string) => {
+    try {
+      // Mandantengescopter Endpoint, der auch Eltern (eigene Kinder) unterstützt
+      const res = await fetch(`/api/daily-reports?childId=${childId}`);
+      const data = res.ok ? await res.json() : [];
+      setReports(Array.isArray(data) ? data : []);
+    } catch {
+      setReports([]);
+    }
+  };
+
+  const openForm = () => {
+    setForm({ date: nowLocal(), mood: '', meals: [], notes: '' });
+    setFormError('');
+    setShowForm(true);
+  };
+
+  const toggleMeal = (m: string) =>
+    setForm((f: any) => ({ ...f, meals: f.meals.includes(m) ? f.meals.filter((x: string) => x !== m) : [...f.meals, m] }));
+
+  const submitReport = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedChildId) return;
+    setSaving(true); setFormError('');
+    try {
+      const res = await fetch('/api/daily-reports', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          childId: selectedChildId,
+          date: new Date(form.date).toISOString(),
+          mood: form.mood || undefined,
+          // gleiches Format wie Personal: [{ type, consumed }]
+          meals: form.meals.map((k: string) => ({ type: k, consumed: true })),
+          notes: form.notes || undefined,
+        }),
+      });
+      if (res.ok) {
+        setShowForm(false);
+        await loadReports(selectedChildId);
+      } else {
+        const d = await res.json().catch(() => ({}));
+        setFormError(typeof d.error === 'string' ? d.error : 'Speichern fehlgeschlagen');
+      }
+    } finally { setSaving(false); }
+  };
+
   useEffect(() => {
     if (status === 'unauthenticated') {
       router.push('/auth/login');
@@ -64,23 +128,8 @@ export default function DailyReportsPage() {
 
   useEffect(() => {
     if (!selectedChildId) return;
-
-    const fetchReports = async () => {
-      try {
-        const res = await fetch(`/api/children/${selectedChildId}/daily-reports`);
-        if (!res.ok) {
-          console.error('Failed to fetch reports:', res.status);
-          setReports([]);
-          return;
-        }
-        const data = await res.json();
-        setReports(Array.isArray(data) ? data : []);
-      } catch (error) {
-        console.error('Error fetching daily reports:', error);
-      }
-    };
-
-    fetchReports();
+    loadReports(selectedChildId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedChildId]);
 
   if (loading) return <div className="text-center py-8 text-secondary-500">Lädt...</div>;
@@ -91,10 +140,55 @@ export default function DailyReportsPage() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div>
-        <h1 className="page-title">Tagesberichte</h1>
-        <p className="page-subtitle">Aktivitäten und Entwicklung Ihres Kindes</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="page-title">Tagesberichte</h1>
+          <p className="page-subtitle">Aktivitäten und Entwicklung Ihres Kindes</p>
+        </div>
+        {children.length > 0 && (
+          <button onClick={openForm} className="btn btn-primary" disabled={!selectedChildId}>+ Bericht anlegen</button>
+        )}
       </div>
+
+      {/* Anlege-Modal (Eltern) */}
+      {showForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setShowForm(false)}>
+          <form onClick={(e) => e.stopPropagation()} onSubmit={submitReport} className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 space-y-4 shadow-elevated">
+            <h2 className="text-xl font-bold text-secondary-900">Tagesbericht für {selectedChild?.firstName}</h2>
+            {formError && <div className="alert alert-error">{formError}</div>}
+            <div>
+              <label className="label label-required">Datum & Zeit</label>
+              <input type="datetime-local" className="input" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} required />
+            </div>
+            <div>
+              <label className="label">Stimmung</label>
+              <div className="flex flex-wrap gap-2">
+                {MOODS.map((m) => (
+                  <button type="button" key={m.v} onClick={() => setForm({ ...form, mood: form.mood === m.v ? '' : m.v })}
+                    className={`chip ${form.mood === m.v ? 'chip-primary ring-2 ring-primary-200' : 'chip-neutral'}`}>{m.l}</button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="label">Mahlzeiten</label>
+              <div className="flex flex-wrap gap-2">
+                {MEAL_TYPES.map((m) => (
+                  <button type="button" key={m.k} onClick={() => toggleMeal(m.k)}
+                    className={`chip ${form.meals.includes(m.k) ? 'chip-accent ring-2 ring-accent-200' : 'chip-neutral'}`}>{m.l}</button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="label">Notizen</label>
+              <textarea className="input" rows={3} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="z.B. besondere Vorkommnisse zu Hause" />
+            </div>
+            <div className="flex justify-end gap-3 pt-2">
+              <button type="button" onClick={() => setShowForm(false)} className="btn btn-secondary">Abbrechen</button>
+              <button type="submit" disabled={saving} className="btn btn-primary px-6">{saving ? 'Speichert…' : 'Bericht speichern'}</button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {children.length > 0 ? (
         <>
@@ -172,10 +266,10 @@ export default function DailyReportsPage() {
                         <div className="surface p-4">
                           <p className="eyebrow mb-2">🍽️ Mahlzeiten</p>
                           <ul className="text-sm text-secondary-700 space-y-1">
-                            {report.meals.map((meal, idx) => (
+                            {parseArr(report.meals).map((meal: any, idx: number) => (
                               <li key={idx} className="flex items-start gap-2">
                                 <span className="text-primary-600 mt-0.5">•</span>
-                                <span>{meal}</span>
+                                <span>{mealLabel(meal.type) || meal.text || '—'}{meal.consumed ? ' ✓' : ''}</span>
                               </li>
                             ))}
                           </ul>
@@ -219,7 +313,7 @@ export default function DailyReportsPage() {
                       {report.mood && (
                         <div className="surface p-4">
                           <p className="eyebrow mb-2">😊 Stimmung</p>
-                          <span className="chip chip-primary">{report.mood}</span>
+                          <span className="chip chip-primary">{moodLabel(report.mood)}</span>
                         </div>
                       )}
 
@@ -228,10 +322,10 @@ export default function DailyReportsPage() {
                         <div className="surface p-4">
                           <p className="eyebrow mb-2">🎨 Aktivitäten</p>
                           <ul className="text-sm text-secondary-700 space-y-1">
-                            {report.activities.map((activity, idx) => (
+                            {parseArr(report.activities).map((activity: any, idx: number) => (
                               <li key={idx} className="flex items-start gap-2">
                                 <span className="text-primary-600 mt-0.5">•</span>
-                                <span>{activity}</span>
+                                <span>{activity.text || activity.name || activity.type || '—'}</span>
                               </li>
                             ))}
                           </ul>
@@ -246,10 +340,10 @@ export default function DailyReportsPage() {
                           <span className="text-base">⚠️</span> Vorfälle
                         </p>
                         <ul className="text-sm text-secondary-700 space-y-1 pl-1">
-                          {report.incidents.map((incident, idx) => (
+                          {parseArr(report.incidents).map((incident: any, idx: number) => (
                             <li key={idx} className="flex items-start gap-2">
                               <span className="text-yellow-600 mt-0.5">•</span>
-                              <span>{incident}</span>
+                              <span>{incident.text || incident.description || incident.type || '—'}</span>
                             </li>
                           ))}
                         </ul>

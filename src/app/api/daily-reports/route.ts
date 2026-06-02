@@ -3,6 +3,7 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { sendDailyReportEmail } from '@/lib/email';
 import { createNotifications } from '@/lib/notify';
+import { resolveChildAccess } from '@/lib/childAccess';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
@@ -101,8 +102,10 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
 
-  if (!session?.user?.kitaId || !['ADMIN', 'KITA_LEITER', 'BETREUER'].includes(session.user.role)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+  // Personal UND Eltern (für eigene Kinder) dürfen Tagesberichte anlegen.
+  // Hinweis: Eltern haben evtl. keine kitaId in der Session → wird aus dem Kind abgeleitet.
+  if (!session?.user?.email) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   try {
@@ -130,14 +133,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify child belongs to same KiTA
-    const child = await prisma.child.findUnique({
-      where: { id: childId },
-    });
-
-    if (!child || child.kitaId !== session.user.kitaId) {
-      return NextResponse.json({ error: 'Child not found or access denied' }, { status: 403 });
+    // Zugriff prüfen: Personal der KiTA ODER Elternteil dieses Kindes
+    const access = await resolveChildAccess(session.user.email, childId);
+    if (!access.child) {
+      return NextResponse.json({ error: 'Child not found' }, { status: 404 });
     }
+    if (!access.allowed) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    }
+    // kitaId aus dem Kind (robust auch für Eltern ohne kitaId in der Session)
+    const reportKitaId = access.child.kitaId;
+    const creatorId = (session.user as any).id || access.user?.id || '';
 
     // Check if report exists for this date
     const reportDate = new Date(date);
@@ -182,9 +188,9 @@ export async function POST(request: NextRequest) {
     const report = await prisma.dailyReport.create({
       data: {
         childId,
-        kitaId: session.user.kitaId,
+        kitaId: reportKitaId,
         date: reportDate,
-        createdBy: session.user.id,
+        createdBy: creatorId,
         meals: Array.isArray(meals) ? meals.map((m: any) => JSON.stringify(m)) : [],
         extraBottles: extraBottles ?? 0,
         extraBottleNotes,
@@ -216,7 +222,7 @@ export async function POST(request: NextRequest) {
         );
         // In-App-Benachrichtigung (Glocke) an die Eltern
         await createNotifications({
-          kitaId: session.user.kitaId,
+          kitaId: reportKitaId,
           recipientIds: c.parents.map((p) => p.id),
           type: 'NEW_REPORT',
           title: `Neuer Tagesbericht – ${childName}`,

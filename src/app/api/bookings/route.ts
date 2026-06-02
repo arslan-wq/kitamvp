@@ -2,6 +2,10 @@ import { getServerSession } from 'next-auth/next';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { createBookingSchema } from '@/lib/validation';
+import { notifyResponsibleStaff } from '@/lib/staffNotify';
+
+const WD = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+const fmtDate = (d: Date | string) => new Date(d).toLocaleDateString('de-CH');
 
 // POST /api/bookings — Eltern (oder Personal) buchen einen Anwesenheits-Zeitraum
 export async function POST(request: Request) {
@@ -52,6 +56,20 @@ export async function POST(request: Request) {
       },
       include: { child: { select: { firstName: true, lastName: true } } },
     });
+
+    // Eltern-Anfrage (PENDING) → zuständiges Personal + Admins benachrichtigen
+    if (!isStaff && parent) {
+      const days = data.weekdays.map((w: number) => WD[w]).join(', ');
+      const periodLabel = `${fmtDate(data.startDate)} – ${fmtDate(data.endDate)}${days ? ` · ${days}` : ''}`;
+      await notifyResponsibleStaff({
+        kitaId: child.kitaId,
+        child: { firstName: child.firstName, lastName: child.lastName, locationId: child.locationId },
+        kind: 'Betreuungsanfrage',
+        periodLabel,
+        parentName: `${parent.firstName} ${parent.lastName}`.trim(),
+        notes: data.notes,
+      });
+    }
 
     return NextResponse.json(booking, { status: 201 });
   } catch (error: any) {
