@@ -1,7 +1,14 @@
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
+import { sendActivityEmail } from '@/lib/email';
 import { NextRequest, NextResponse } from 'next/server';
+
+const ACTIVITY_LABELS: Record<string, string> = {
+  EATING: 'Essen', DRINKING: 'Trinken', CHANGING_DIAPER: 'Wickeln', SLEEPING: 'Schlafen',
+  ACTIVITY: 'Beschäftigung', DISCUSSION: 'Besprechung', NOTE: 'Bemerkung', HEALTH_ISSUE: 'Autsch',
+  TRIP: 'Ausflug', ABSENT: 'Abwesend', HOLIDAY: 'Ferien', DRAWING: 'Zeichnen',
+};
 
 export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -13,30 +20,32 @@ export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const childId = searchParams.get('childId');
   const dateStr = searchParams.get('date');
+  const startDate = searchParams.get('startDate');
+  const endDate = searchParams.get('endDate');
 
-  // If a specific date is provided, filter to that day
-  let where: any = { kitaId: session.user.kitaId };
-
-  if (childId) {
-    where.childId = childId;
-  }
+  const where: any = { kitaId: session.user.kitaId };
+  if (childId) where.childId = childId;
 
   if (dateStr) {
-    const date = new Date(dateStr);
-    date.setHours(0, 0, 0, 0);
-    const nextDay = new Date(date);
-    nextDay.setDate(nextDay.getDate() + 1);
-
-    where.timestamp = {
-      gte: date,
-      lt: nextDay,
-    };
+    const date = new Date(dateStr); date.setHours(0, 0, 0, 0);
+    const nextDay = new Date(date); nextDay.setDate(nextDay.getDate() + 1);
+    where.timestamp = { gte: date, lt: nextDay };
+  } else if (startDate || endDate) {
+    where.timestamp = {};
+    if (startDate) { const s = new Date(startDate); s.setHours(0, 0, 0, 0); where.timestamp.gte = s; }
+    if (endDate) { const e = new Date(endDate); e.setHours(23, 59, 59, 999); where.timestamp.lte = e; }
   }
 
   const activities = await prisma.activity.findMany({
     where,
+    take: 500,
     include: {
-      child: true,
+      child: {
+        select: {
+          id: true, firstName: true, lastName: true, photoUrl: true, locationId: true,
+          location: { select: { id: true, name: true } },
+        },
+      },
     },
     orderBy: { timestamp: 'desc' },
   });
@@ -83,11 +92,25 @@ export async function POST(request: NextRequest) {
     include: {
       child: {
         include: {
-          parents: true,
+          parents: { select: { email: true, firstName: true } },
         },
       },
     },
   });
+
+  // Eltern per E-Mail benachrichtigen
+  try {
+    const childName = `${activity.child.firstName} ${activity.child.lastName}`;
+    const activityLabel = ACTIVITY_LABELS[activity.type] || activity.type;
+    const timeLabel = new Date(activity.timestamp).toLocaleString('de-CH', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    await Promise.allSettled(
+      activity.child.parents.map((p) =>
+        sendActivityEmail(p.email, { parentName: p.firstName, childName, activityLabel, timeLabel, details: activity.details })
+      )
+    );
+  } catch (e) {
+    console.error('[activity] Eltern-Mail fehlgeschlagen:', e);
+  }
 
   return NextResponse.json(activity, { status: 201 });
 }
