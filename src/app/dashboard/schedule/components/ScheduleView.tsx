@@ -359,7 +359,7 @@ export default function ScheduleView() {
                     const checkedIn = att?.checkInTime && !att?.checkOutTime;
                     const checkedOut = att?.checkOutTime;
                     return (
-                      <div key={b.childId} className="surface p-4 flex flex-col gap-3">
+                      <div key={b.childId} className="bg-white rounded-2xl border border-secondary-100 p-4 flex flex-col gap-3">
                         <div className="flex items-center gap-3">
                           {avatarEl(b.child)}
                           <div className="min-w-0 flex-1">

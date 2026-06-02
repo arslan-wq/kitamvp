@@ -11,7 +11,7 @@ interface Location {
   ageGroup: string;
   staff: string[];
   users?: Array<{ id: string; name: string }>;
-  children?: Array<{ id: string; firstName: string; lastName: string }>;
+  children?: Array<{ id: string; firstName: string; lastName: string; photoUrl?: string | null }>;
   childrenCount?: number;
 }
 
@@ -283,16 +283,30 @@ export default function LocationsPage() {
                   </div>
                 </div>
 
-                {/* Kinder als Chips */}
+                {/* Kinder als Foto-Avatare */}
                 {location.children && location.children.length > 0 && (
                   <div className="mb-3">
-                    <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-1.5">Kinder</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {location.children.map(child => (
-                        <span key={child.id} className="text-xs bg-secondary-50 text-secondary-700 rounded-lg px-2 py-1">
-                          {child.firstName} {child.lastName.charAt(0)}.
-                        </span>
+                    <p className="eyebrow mb-2">Kinder</p>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {location.children.slice(0, 10).map(child => (
+                        <div
+                          key={child.id}
+                          title={`${child.firstName} ${child.lastName}`}
+                          className="w-9 h-9 rounded-full overflow-hidden bg-primary-100 text-primary-700 text-[11px] font-bold flex items-center justify-center ring-2 ring-white shrink-0"
+                        >
+                          {child.photoUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={child.photoUrl} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            `${child.firstName.charAt(0)}${child.lastName.charAt(0)}`.toUpperCase()
+                          )}
+                        </div>
                       ))}
+                      {location.children.length > 10 && (
+                        <span className="text-xs font-semibold text-secondary-500 ml-1">
+                          +{location.children.length - 10}
+                        </span>
+                      )}
                     </div>
                   </div>
                 )}
