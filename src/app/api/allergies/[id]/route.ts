@@ -23,7 +23,7 @@ export async function DELETE(
   }
 
   const access = await resolveChildAccess(session.user.email, allergy.childId);
-  if (!access.allowed) {
+  if (!access.canEdit) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 

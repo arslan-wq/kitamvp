@@ -13,11 +13,16 @@ export async function resolveChildAccess(email: string | null | undefined, child
   const user = await prisma.user.findUnique({ where: { email } });
   const isStaff = !!user && user.kitaId === child.kitaId;
   const isParent = child.parents.some((p) => p.email === email);
+  const isAdmin = isStaff && user!.role === 'ADMIN';
 
   return {
+    // Lesen: Personal der KiTA oder Eltern
     allowed: isStaff || isParent,
+    // Bearbeiten von Profil-/Medizindaten: NUR Admin oder Eltern des Kindes
+    canEdit: isParent || isAdmin,
     isStaff,
     isParent,
+    isAdmin,
     child,
     user,
   };

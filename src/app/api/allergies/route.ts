@@ -17,7 +17,7 @@ export async function POST(request: Request) {
   }
 
   const access = await resolveChildAccess(session.user.email, childId);
-  if (!access.allowed) {
+  if (!access.canEdit) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 

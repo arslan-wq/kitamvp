@@ -66,10 +66,10 @@ export async function PUT(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Zugriff: Personal der KiTA ODER Eltern des Kindes
+    // Bearbeiten: nur Admin oder Eltern des Kindes
     const access = await resolveChildAccess(session.user.email, params.id);
-    if (!access.allowed || !access.child) {
-      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    if (!access.canEdit || !access.child) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
     const child = access.child;
 

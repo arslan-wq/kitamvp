@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
 
     // Zugriff: Personal der KiTA ODER Eltern des Kindes
     const access = await resolveChildAccess(session.user.email, childId);
-    if (!access.allowed) {
+    if (!access.canEdit) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

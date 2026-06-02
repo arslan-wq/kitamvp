@@ -2,11 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import ChildDossier from '@/components/ChildDossier';
 
 export default function ChildDetailPage({ params }: { params: { id: string } }) {
   const router = useRouter();
+  const { data: session } = useSession();
+  const isAdmin = (session?.user as any)?.role === 'ADMIN';
   const [child, setChild] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -125,7 +128,7 @@ export default function ChildDetailPage({ params }: { params: { id: string } }) 
       </div>
 
       {/* Komplettes Dossier des Kindes */}
-      <ChildDossier child={child} activitiesBase="/api/activities" editable isStaff />
+      <ChildDossier child={child} activitiesBase="/api/activities" editable={isAdmin} isStaff />
     </div>
   );
 }

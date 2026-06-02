@@ -2,28 +2,21 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { resolveChildAccess } from '@/lib/childAccess';
 
 const MAX_LEN = 700_000; // ~500 KB Bild als Data-URL
 
 // PUT /api/children/[id]/photo  body: { photoUrl: string | null }
-// Profilfoto setzen oder entfernen. Personal (eigene KiTA) ODER Eltern (eigenes Kind).
+// Profilfoto setzen oder entfernen. NUR Admin oder Eltern des Kindes.
 export async function PUT(request: Request, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const child = await prisma.child.findUnique({
-    where: { id: params.id },
-    include: { parents: { select: { email: true } } },
-  });
-  if (!child) return NextResponse.json({ error: 'Kind nicht gefunden' }, { status: 404 });
-
-  // Zugriff prüfen
-  const user = await prisma.user.findUnique({ where: { email: session.user.email } });
-  const isStaff = !!user && user.kitaId === child.kitaId;
-  const isParent = child.parents.some(p => p.email === session.user!.email);
-  if (!isStaff && !isParent) {
+  const access = await resolveChildAccess(session.user.email, params.id);
+  if (!access.child) return NextResponse.json({ error: 'Kind nicht gefunden' }, { status: 404 });
+  if (!access.canEdit) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
