@@ -1,10 +1,23 @@
 import { prisma } from '@/lib/db';
 import ContactLink from '@/components/ContactLink';
 
-// Server-Komponente: zeigt Kontakt- & Notfalldaten der KiTA und ihrer Standorte.
+const DAYS = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag'];
+// Montag der aktuellen Woche (Server-seitig)
+function currentMonday(): Date {
+  const d = new Date();
+  const day = d.getDay();
+  d.setDate(d.getDate() - day + (day === 0 ? -6 : 1));
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+// Server-Komponente: zeigt Kontakt- & Notfalldaten der KiTA, Standorte und den Menüplan.
 // Für ALLE Rollen sichtbar (Personal + Eltern). Mandantengescoped über kitaId.
 export default async function KitaContactView({ kitaId }: { kitaId: string }) {
-  const [kita, locations] = await Promise.all([
+  const monday = currentMonday();
+  const nextMonday = new Date(monday); nextMonday.setDate(nextMonday.getDate() + 7);
+
+  const [kita, locations, mealPlan] = await Promise.all([
     prisma.kiTA.findUnique({
       where: { id: kitaId },
       select: { name: true, address: true, phone: true, email: true },
@@ -14,7 +27,23 @@ export default async function KitaContactView({ kitaId }: { kitaId: string }) {
       select: { id: true, name: true, address: true, phone: true, email: true, emergencyPhone: true },
       orderBy: { name: 'asc' },
     }),
+    prisma.mealPlan.findFirst({
+      where: { kitaId, weekStart: { gte: monday, lt: nextMonday } },
+      orderBy: { weekStart: 'desc' },
+    }),
   ]);
+
+  let menu: Array<{ day: string; breakfast: string; lunch: string; snack: string }> = [];
+  if (mealPlan) {
+    try {
+      const parsed = JSON.parse(mealPlan.meals);
+      menu = DAYS.map((day) => {
+        const f = (Array.isArray(parsed) ? parsed.find((x: any) => x.day === day) : null) || {};
+        return { day, breakfast: f.breakfast || '', lunch: f.lunch || '', snack: f.snack || '' };
+      });
+    } catch { menu = []; }
+  }
+  const hasMenu = menu.some((m) => m.breakfast || m.lunch || m.snack);
 
   return (
     <div className="space-y-6">
@@ -58,6 +87,53 @@ export default async function KitaContactView({ kitaId }: { kitaId: string }) {
           ))}
         </div>
       )}
+
+      {/* Menüplan – aktuelle Woche */}
+      <div className="card p-6">
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <div>
+            <p className="eyebrow">Verpflegung</p>
+            <h2 className="text-xl font-semibold text-secondary-900">🍽️ Menüplan</h2>
+          </div>
+          <span className="chip chip-neutral">Woche vom {monday.toLocaleDateString('de-CH')}</span>
+        </div>
+        {!hasMenu ? (
+          <p className="text-secondary-500 text-sm">Für diese Woche ist noch kein Menüplan hinterlegt.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className="text-left text-secondary-400">
+                  <th className="py-2 pr-3 font-semibold">Tag</th>
+                  <th className="py-2 px-3 font-semibold">Frühstück</th>
+                  <th className="py-2 px-3 font-semibold">Mittagessen</th>
+                  <th className="py-2 px-3 font-semibold">Zvieri</th>
+                </tr>
+              </thead>
+              <tbody>
+                {menu.map((m) => (
+                  <tr key={m.day} className="border-t border-secondary-100 align-top">
+                    <td className="py-2 pr-3 font-semibold text-secondary-900 whitespace-nowrap">{m.day}</td>
+                    <td className="py-2 px-3 text-secondary-700">{m.breakfast || '–'}</td>
+                    <td className="py-2 px-3 text-secondary-700">{m.lunch || '–'}</td>
+                    <td className="py-2 px-3 text-secondary-700">{m.snack || '–'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Weitere Links */}
+      <div className="card p-6">
+        <p className="eyebrow mb-3">Mehr über Kita Luna</p>
+        <div className="flex flex-wrap gap-2">
+          <a href="https://www.kitaluna.ch/#konzept" target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm">📖 Konzept</a>
+          <a href="https://www.instagram.com/kitaluna_/" target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm">📷 Instagram</a>
+          <a href="https://www.kitaluna.ch/datenschutz/" target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm">🔒 Datenschutz</a>
+        </div>
+      </div>
     </div>
   );
 }
