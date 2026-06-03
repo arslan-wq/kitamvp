@@ -116,7 +116,8 @@ export default function MessagingClient({ childrenList, role, locations, myLocat
             <option value="none">Standortübergreifend</option>
           </select>
         </div>
-        {!showNew && <button onClick={() => setShowNew(true)} className="btn btn-primary">+ Neu</button>}
+        {isAdmin && !showNew && <button onClick={() => setShowNew(true)} className="btn btn-primary">+ Neu</button>}
+        {!isAdmin && <span className="chip chip-neutral">Nur Lesen · senden nur Admin</span>}
       </div>
 
       {error && <div className="alert alert-error mb-4">{error}</div>}
@@ -201,7 +202,7 @@ export default function MessagingClient({ childrenList, role, locations, myLocat
                         <div className="avatar avatar-sm">{initials(m.senderName)}</div>
                         <div className="flex-1 min-w-0 bg-white rounded-xl border border-secondary-100 p-3">
                           <div className="flex justify-between gap-2 mb-0.5"><span className="font-semibold text-sm text-secondary-900">{m.senderName}</span><span className="text-xs text-secondary-400">{fmt(m.createdAt)}</span></div>
-                          <p className="text-sm text-secondary-700 whitespace-pre-wrap">{m.content}</p>
+                          <p className="text-sm text-secondary-700 whitespace-pre-wrap break-words">{m.content}</p>
                         </div>
                       </div>
                       {m.replies?.length > 0 && (
@@ -209,7 +210,7 @@ export default function MessagingClient({ childrenList, role, locations, myLocat
                           {m.replies.map((r: any) => (
                             <div key={r.id} className="bg-white rounded-lg border border-secondary-100 p-2.5">
                               <div className="flex justify-between gap-2 mb-0.5"><span className="font-medium text-sm text-secondary-900">{r.senderName}</span><span className="text-xs text-secondary-400">{fmt(r.createdAt)}</span></div>
-                              <p className="text-sm text-secondary-700 whitespace-pre-wrap">{r.content}</p>
+                              <p className="text-sm text-secondary-700 whitespace-pre-wrap break-words">{r.content}</p>
                             </div>
                           ))}
                         </div>
@@ -217,10 +218,14 @@ export default function MessagingClient({ childrenList, role, locations, myLocat
                     </div>
                   ))}
               </div>
-              <div className="border-t border-secondary-100 p-4 flex items-end gap-3">
-                <textarea value={reply} onChange={e => setReply(e.target.value)} rows={2} placeholder="Antwort…" className="input flex-1 resize-none" />
-                <button onClick={sendReply} disabled={busy || !reply.trim()} className="btn btn-primary px-6 shrink-0">{busy ? '…' : 'Senden'}</button>
-              </div>
+              {isAdmin ? (
+                <div className="border-t border-secondary-100 p-4 flex items-end gap-3">
+                  <textarea value={reply} onChange={e => setReply(e.target.value)} rows={2} placeholder="Antwort…" className="input flex-1 resize-none" />
+                  <button onClick={sendReply} disabled={busy || !reply.trim()} className="btn btn-primary px-6 shrink-0">{busy ? '…' : 'Senden'}</button>
+                </div>
+              ) : (
+                <div className="border-t border-secondary-100 p-4 text-center text-sm text-secondary-400">Antworten können nur von Admins gesendet werden.</div>
+              )}
             </div>
           )}
         </div>

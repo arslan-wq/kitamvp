@@ -141,10 +141,10 @@ export async function POST(request: NextRequest) {
 
     const user = session.user as any;
 
-    // Only staff can create threads
-    if (!user.kitaId || !['ADMIN', 'KITA_LEITER', 'BETREUER'].includes(user.role)) {
+    // T10: Nur Admin darf Pinnwand-Einträge versenden (nicht Leitung/Betreuer)
+    if (!user.kitaId || user.role !== 'ADMIN') {
       return NextResponse.json(
-        { error: 'Only staff can create message threads' },
+        { error: 'Nur Admin darf Pinnwand-Einträge versenden' },
         { status: 403 }
       );
     }

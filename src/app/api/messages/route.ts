@@ -39,6 +39,10 @@ export async function POST(request: NextRequest) {
   if (!session?.user?.kitaId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+  // T10: Nur Admin darf Pinnwand-Einträge versenden
+  if ((session.user as any).role !== 'ADMIN') {
+    return NextResponse.json({ error: 'Nur Admin darf Pinnwand-Einträge versenden' }, { status: 403 });
+  }
 
   try {
     const { childId, content } = await request.json();

@@ -31,6 +31,7 @@ export default function ActivitiesBoard({ childrenList, locations }: { childrenL
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [detail, setDetail] = useState<any | null>(null); // T6: Volltext-Popup
   const nowLocal = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); };
   const [form, setForm] = useState<any>(null);
 
@@ -119,15 +120,17 @@ export default function ActivitiesBoard({ childrenList, locations }: { childrenL
     const m = meta(a.type);
     return (
       <div className="card p-3 group">
-        <div className="flex items-center gap-2">
-          <span className="text-xl">{m.icon}</span>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-secondary-900 truncate">{m.name}</p>
-            <p className="text-xs text-secondary-400">{time(a.timestamp)}</p>
+        <button type="button" onClick={() => setDetail(a)} className="w-full text-left" title="Details anzeigen">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">{m.icon}</span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-secondary-900 truncate">{m.name}</p>
+              <p className="text-xs text-secondary-400">{time(a.timestamp)}</p>
+            </div>
+            <Avatar a={a} />
           </div>
-          <Avatar a={a} />
-        </div>
-        <p className="text-xs text-secondary-600 mt-1 truncate">{a.child?.firstName} {a.child?.lastName}{a.details ? ` · ${a.details}` : ''}</p>
+          <p className="text-xs text-secondary-600 mt-1 truncate">{a.child?.firstName} {a.child?.lastName}{a.details ? ` · ${a.details}` : ''}</p>
+        </button>
         <div className="flex items-center justify-between mt-1.5 gap-2">
           {a.creatorName ? <span className="text-[10px] text-secondary-400 truncate">✎ {a.creatorName}</span> : <span />}
           <div className="flex gap-1 shrink-0">
@@ -194,12 +197,14 @@ export default function ActivitiesBoard({ childrenList, locations }: { childrenL
                     <div key={a.id} className="relative">
                       <span className="absolute -left-[1.92rem] top-4 w-3 h-3 rounded-full bg-primary-500 ring-4 ring-secondary-50" />
                       <div className="card p-3 flex items-center gap-3">
-                        <span className="text-xl">{m.icon}</span>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-semibold text-secondary-900">{m.name} · {a.child?.firstName} {a.child?.lastName}</p>
-                          {a.details && <p className="text-xs text-secondary-600 truncate">{a.details}</p>}
-                          {a.creatorName && <p className="text-[10px] text-secondary-400">✎ {a.creatorName}</p>}
-                        </div>
+                        <button type="button" onClick={() => setDetail(a)} className="flex items-center gap-3 min-w-0 flex-1 text-left" title="Details anzeigen">
+                          <span className="text-xl">{m.icon}</span>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-semibold text-secondary-900">{m.name} · {a.child?.firstName} {a.child?.lastName}</p>
+                            {a.details && <p className="text-xs text-secondary-600 truncate">{a.details}</p>}
+                            {a.creatorName && <p className="text-[10px] text-secondary-400">✎ {a.creatorName}</p>}
+                          </div>
+                        </button>
                         {a.child?.location?.name && <span className="chip chip-accent shrink-0 hidden sm:inline-flex">📍 {a.child.location.name}</span>}
                         <span className="text-xs text-secondary-400 shrink-0">{time(a.timestamp)}</span>
                         <div className="flex gap-1 shrink-0">
@@ -246,6 +251,38 @@ export default function ActivitiesBoard({ childrenList, locations }: { childrenL
               <button type="submit" disabled={saving} className="btn btn-primary px-6">{saving ? 'Speichert…' : 'Aktivität speichern'}</button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* T6: Volltext-Detail-Popup */}
+      {detail && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setDetail(null)}>
+          <div onClick={e => e.stopPropagation()} className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto p-6 shadow-elevated">
+            <div className="flex items-start justify-between gap-3 mb-4">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-2xl">{meta(detail.type).icon}</span>
+                <h2 className="text-lg font-bold text-secondary-900">{meta(detail.type).name}</h2>
+              </div>
+              <button onClick={() => setDetail(null)} className="btn-icon w-8 h-8 text-secondary-400 hover:bg-secondary-100" title="Schliessen">✕</button>
+            </div>
+            <div className="space-y-3 text-sm">
+              <div className="flex items-center gap-3">
+                <Avatar a={detail} />
+                <div>
+                  <p className="font-semibold text-secondary-900">{detail.child?.firstName} {detail.child?.lastName}</p>
+                  {detail.child?.location?.name && <p className="text-xs text-secondary-500">📍 {detail.child.location.name}</p>}
+                </div>
+              </div>
+              <p><span className="text-secondary-400">Zeitpunkt:</span> {new Date(detail.timestamp).toLocaleString('de-CH', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+              {detail.details && <div><p className="text-secondary-400 mb-0.5">Details</p><p className="text-secondary-800 whitespace-pre-wrap break-words">{detail.details}</p></div>}
+              {detail.notes && <div><p className="text-secondary-400 mb-0.5">Notizen</p><p className="text-secondary-800 whitespace-pre-wrap break-words">{detail.notes}</p></div>}
+              {detail.creatorName && <p className="text-xs text-secondary-400 pt-2 border-t border-secondary-100">Eingepflegt von {detail.creatorName}</p>}
+            </div>
+            <div className="flex justify-end gap-2 mt-5">
+              <button onClick={() => { const a = detail; setDetail(null); openEdit(a); }} className="btn btn-secondary btn-sm">✏️ Bearbeiten</button>
+              <button onClick={() => setDetail(null)} className="btn btn-primary btn-sm px-5">Schliessen</button>
+            </div>
+          </div>
         </div>
       )}
     </div>

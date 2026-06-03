@@ -35,6 +35,14 @@ export async function POST(
       );
     }
 
+    // T10: Personal-Antworten nur durch Admin (Eltern dürfen weiterhin antworten)
+    if (user.role !== 'PARENT' && user.role !== 'ADMIN') {
+      return NextResponse.json(
+        { error: 'Nur Admin darf Pinnwand-Einträge versenden' },
+        { status: 403 }
+      );
+    }
+
     // Verify thread exists and user has access
     const thread = await prisma.messageThread.findUnique({
       where: { id: threadId },

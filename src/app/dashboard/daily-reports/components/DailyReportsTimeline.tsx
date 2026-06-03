@@ -32,6 +32,7 @@ export default function DailyReportsTimeline({ childrenList, locations }: { chil
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [detail, setDetail] = useState<any | null>(null); // T6: Volltext-Popup
   const nowLocal = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); };
   const toLocalInput = (iso: string) => { const d = new Date(iso); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); };
   const [form, setForm] = useState<any>(null);
@@ -204,7 +205,8 @@ export default function DailyReportsTimeline({ childrenList, locations }: { chil
                       <span className="absolute -left-[1.92rem] top-4 w-3 h-3 rounded-full bg-primary-500 ring-4 ring-secondary-50" />
                       <div className="card p-4">
                         <div className="flex items-start gap-3">
-                          <div className="avatar avatar-md overflow-hidden">
+                          <button type="button" onClick={() => setDetail(r)} className="flex items-start gap-3 min-w-0 flex-1 text-left" title="Details anzeigen">
+                          <div className="avatar avatar-md overflow-hidden shrink-0">
                             {r.child?.photoUrl ? (
                               // eslint-disable-next-line @next/next/no-img-element
                               <img src={r.child.photoUrl} alt="" className="w-full h-full object-cover" />
@@ -222,8 +224,9 @@ export default function DailyReportsTimeline({ childrenList, locations }: { chil
                               {incidents.length > 0 && <span className="chip chip-warning">⚠️ {incidents.length} Vorfall/-fälle</span>}
                               {r.child?.location?.name && <span className="chip chip-accent">📍 {r.child.location.name}</span>}
                             </div>
-                            {r.notes && <p className="text-sm text-secondary-600 mt-2">{r.notes}</p>}
+                            {r.notes && <p className="text-sm text-secondary-600 mt-2 line-clamp-2">{r.notes}</p>}
                           </div>
+                          </button>
                           <div className="flex flex-col gap-1 shrink-0">
                             <button onClick={() => printReport(r)} className="btn btn-secondary btn-sm" title="Als PDF drucken">🖨️ PDF</button>
                             <div className="flex gap-1">
@@ -281,6 +284,40 @@ export default function DailyReportsTimeline({ childrenList, locations }: { chil
           </form>
         </div>
       )}
+
+      {/* T6: Volltext-Detail-Popup für Tagesberichte */}
+      {detail && (() => {
+        const meals = parseArr(detail.meals);
+        const incidents = parseArr(detail.incidents);
+        const activities = parseArr(detail.activities);
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setDetail(null)}>
+            <div onClick={e => e.stopPropagation()} className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto p-6 shadow-elevated">
+              <div className="flex items-start justify-between gap-3 mb-4">
+                <div>
+                  <h2 className="text-lg font-bold text-secondary-900">{detail.child?.firstName} {detail.child?.lastName}</h2>
+                  <p className="text-xs text-secondary-500">{new Date(detail.date).toLocaleString('de-CH', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+                </div>
+                <button onClick={() => setDetail(null)} className="btn-icon w-8 h-8 text-secondary-400 hover:bg-secondary-100" title="Schliessen">✕</button>
+              </div>
+              <div className="space-y-3 text-sm">
+                {detail.mood && <p><span className="text-secondary-400">Stimmung:</span> {moodLabel(detail.mood)}</p>}
+                {meals.length > 0 && <p><span className="text-secondary-400">Mahlzeiten:</span> {meals.map((m: any) => MEAL_TYPES.find(t => t.k === m.type)?.l || m.type).join(', ')}</p>}
+                {detail.sleepDuration > 0 && <p><span className="text-secondary-400">Schlaf:</span> {detail.sleepDuration} Min</p>}
+                {(detail.toiletVisits > 0 || detail.diaperChanges > 0) && <p><span className="text-secondary-400">Hygiene:</span> WC {detail.toiletVisits || 0} · Windeln {detail.diaperChanges || 0}</p>}
+                {activities.length > 0 && <div><p className="text-secondary-400 mb-0.5">Aktivitäten</p><ul className="list-disc pl-5 text-secondary-800">{activities.map((a: any, i: number) => <li key={i}>{a.name || a.text || a.type}</li>)}</ul></div>}
+                {incidents.length > 0 && <div><p className="text-yellow-700 font-medium mb-0.5">⚠️ Vorfälle</p><ul className="list-disc pl-5 text-secondary-800">{incidents.map((x: any, i: number) => <li key={i} className="whitespace-pre-wrap break-words">{x.description || x.text || x.type}</li>)}</ul></div>}
+                {detail.notes && <div><p className="text-secondary-400 mb-0.5">Notizen</p><p className="text-secondary-800 whitespace-pre-wrap break-words">{detail.notes}</p></div>}
+              </div>
+              <div className="flex justify-end gap-2 mt-5">
+                <button onClick={() => printReport(detail)} className="btn btn-secondary btn-sm">🖨️ PDF</button>
+                <button onClick={() => { const r = detail; setDetail(null); openEdit(r); }} className="btn btn-secondary btn-sm">✏️ Bearbeiten</button>
+                <button onClick={() => setDetail(null)} className="btn btn-primary btn-sm px-5">Schliessen</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
