@@ -31,6 +31,21 @@ export default function ProfileEditor() {
   const [phone, setPhone] = useState('');
   const [photo, setPhoto] = useState<string | null>(null);
 
+  // T13: Foto-Datenschutz-Einwilligung je Kind (nur Eltern)
+  const [kids, setKids] = useState<Array<{ id: string; firstName: string; lastName: string; photoConsent: boolean }>>([]);
+  const [consentBusy, setConsentBusy] = useState<string | null>(null);
+
+  const toggleConsent = async (childId: string, consent: boolean) => {
+    setConsentBusy(childId);
+    try {
+      const res = await fetch(`/api/children/${childId}/photo-consent`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ consent }),
+      });
+      if (res.ok) setKids((prev) => prev.map((k) => (k.id === childId ? { ...k, photoConsent: consent } : k)));
+    } finally { setConsentBusy(null); }
+  };
+
   useEffect(() => {
     fetch('/api/me')
       .then((r) => (r.ok ? r.json() : null))
@@ -42,6 +57,12 @@ export default function ProfileEditor() {
           setLastName(d.lastName || '');
           setPhone(d.phone || '');
           setPhoto(d.photoUrl || null);
+          if (d.type === 'parent') {
+            fetch('/api/parent/children')
+              .then((r) => (r.ok ? r.json() : []))
+              .then((cs: any[]) => setKids((cs || []).map((c) => ({ id: c.id, firstName: c.firstName, lastName: c.lastName, photoConsent: !!c.photoConsent }))))
+              .catch(() => {});
+          }
         }
       })
       .finally(() => setLoading(false));
@@ -146,6 +167,47 @@ export default function ProfileEditor() {
           <button type="submit" disabled={saving} className="btn btn-primary px-6">{saving ? 'Speichert…' : '💾 Speichern'}</button>
         </div>
       </form>
+
+      {/* T13: Foto-Datenschutz-Einwilligung (nur Eltern) */}
+      {me.type === 'parent' && (
+        <div className="card p-6 space-y-4">
+          <div>
+            <p className="eyebrow">Datenschutz</p>
+            <h2 className="text-lg font-bold text-secondary-900">Fotos &amp; Datenschutz</h2>
+            <p className="text-sm text-secondary-500 mt-1">
+              Erst mit Ihrer Einwilligung dürfen Fotos Ihres Kindes hochgeladen und geteilt werden.
+              Sie können dies jederzeit widerrufen.{' '}
+              <a href="https://www.kitaluna.ch/datenschutz/" target="_blank" rel="noopener noreferrer" className="underline">Datenschutzrichtlinien</a>.
+            </p>
+          </div>
+          {kids.length === 0 ? (
+            <p className="text-sm text-secondary-400">Noch kein Kind verknüpft.</p>
+          ) : (
+            <div className="space-y-2">
+              {kids.map((k) => (
+                <label key={k.id} className="flex items-start gap-3 p-3 surface rounded-xl cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={k.photoConsent}
+                    disabled={consentBusy === k.id}
+                    onChange={(e) => toggleConsent(k.id, e.target.checked)}
+                    className="w-5 h-5 accent-primary-600 mt-0.5"
+                  />
+                  <span>
+                    <span className="font-medium text-secondary-900">{k.firstName} {k.lastName}</span>
+                    <span className="block text-xs text-secondary-500">
+                      Ich akzeptiere die DSV-Datenschutzrichtlinien und willige ein, dass Fotos von {k.firstName} hochgeladen werden dürfen.
+                    </span>
+                    <span className={`chip mt-1 ${k.photoConsent ? 'chip-success' : 'chip-neutral'}`}>
+                      {k.photoConsent ? '✓ Einwilligung erteilt' : 'Keine Einwilligung'}
+                    </span>
+                  </span>
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

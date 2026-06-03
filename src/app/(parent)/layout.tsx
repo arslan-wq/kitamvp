@@ -2,6 +2,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
+import { prisma } from '@/lib/db';
 import NotificationBell from '@/components/NotificationBell';
 import HeaderProfile from '@/components/HeaderProfile';
 import ParentMobileMenu from './components/ParentMobileMenu';
@@ -17,13 +18,19 @@ export default async function ParentLayout({
     redirect('/auth/login');
   }
 
+  // T13: Nur mit Foto-Einwilligung erscheint „Bilder & Dokumente", sonst nur „Dokumente"
+  const consentCount = await prisma.child.count({
+    where: { parents: { some: { id: (session.user as any).id } }, photoConsent: true },
+  });
+  const docsLabel = consentCount > 0 ? 'Bilder & Dokumente' : 'Dokumente';
+
   const navItems = [
     { label: 'Meine Kinder', href: '/children' },
     { label: 'Betreuungstage', href: '/bookings' },
     { label: 'Tagesberichte', href: '/daily-reports' },
     { label: 'Aktivitäten', href: '/activities' },
     { label: 'Pinnwand', href: '/messages' },
-    { label: 'Bilder & Dokumente', href: '/documents' },
+    { label: docsLabel, href: '/documents' },
     { label: 'Kita Kontakt', href: '/kontakt' },
   ];
 

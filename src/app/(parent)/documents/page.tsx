@@ -1,150 +1,129 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
-interface Document {
+interface Doc {
   id: string;
   fileName: string;
   storageUrl: string;
+  kind?: string;
   uploadedAt: string;
-  childId?: string;
-  child?: { firstName: string; lastName: string };
+  childId?: string | null;
+  child?: { firstName: string; lastName: string } | null;
 }
 
 export default function ParentDocumentsPage() {
-  const [documents, setDocuments] = useState<Document[]>([]);
+  const [documents, setDocuments] = useState<Doc[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
+  const [selectedChildId, setSelectedChildId] = useState('');
+  const [kindFilter, setKindFilter] = useState<'all' | 'photo' | 'document'>('all');
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
   const [children, setChildren] = useState<any[]>([]);
+  const [viewer, setViewer] = useState<Doc | null>(null);
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const childRes = await fetch('/api/parent/children');
-        if (!childRes.ok) throw new Error('Failed to fetch children');
-        const childData = await childRes.json();
-        setChildren(childData);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Unknown error');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
+    fetch('/api/parent/children').then((r) => (r.ok ? r.json() : [])).then((d) => setChildren(Array.isArray(d) ? d : [])).catch(() => {});
   }, []);
 
-  useEffect(() => {
-    const fetchDocuments = async () => {
-      try {
-        let url = '/api/parent/documents';
-        if (selectedChildId) {
-          url += `?childId=${selectedChildId}`;
-        }
-        const response = await fetch(url);
-        if (!response.ok) throw new Error('Failed to fetch documents');
-        const data = await response.json();
-        setDocuments(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Unknown error');
-      }
-    };
+  const load = useCallback(async () => {
+    const qs = new URLSearchParams();
+    if (selectedChildId) qs.set('childId', selectedChildId);
+    if (kindFilter !== 'all') qs.set('kind', kindFilter);
+    if (from) qs.set('startDate', from);
+    if (to) qs.set('endDate', to);
+    try {
+      const res = await fetch(`/api/parent/documents?${qs.toString()}`);
+      setDocuments(res.ok ? await res.json() : []);
+    } catch { setError('Laden fehlgeschlagen'); }
+    finally { setLoading(false); }
+  }, [selectedChildId, kindFilter, from, to]);
+  useEffect(() => { load(); }, [load]);
 
-    fetchDocuments();
-  }, [selectedChildId]);
+  const isImg = (d: Doc) => d.kind === 'photo' || d.storageUrl?.startsWith('data:image/');
 
-  if (loading) {
-    return <div className="text-center text-secondary-500 py-16">Lädt…</div>;
-  }
+  if (loading) return <div className="text-center text-secondary-500 py-16">Lädt…</div>;
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-        <div>
-          <h1 className="page-title">📸 Fotos &amp; Dokumente</h1>
-          <p className="page-subtitle">Geteilte Momente und Unterlagen Ihrer Kinder</p>
-        </div>
-        <div className="w-full sm:w-64">
-          <label className="label">Nach Kind filtern</label>
-          <select
-            value={selectedChildId || ''}
-            onChange={(e) => setSelectedChildId(e.target.value || null)}
-            className="input"
-          >
-            <option value="">Alle Kinder</option>
-            {children.map((child) => (
-              <option key={child.id} value={child.id}>
-                {child.firstName} {child.lastName}
-              </option>
-            ))}
-          </select>
-        </div>
+      <div>
+        <h1 className="page-title">📸 Fotos &amp; Dokumente</h1>
+        <p className="page-subtitle">Geteilte Momente und Unterlagen Ihrer Kinder</p>
       </div>
 
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl">
-          {error}
-        </div>
-      )}
+      {error && <div className="alert alert-error">{error}</div>}
 
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-        <div className="stat-card">
-          <p className="stat-value">{documents.length}</p>
-          <p className="stat-label">Geteilte Dateien</p>
+      {/* Filter */}
+      <div className="card p-4 grid grid-cols-1 sm:grid-cols-4 gap-3">
+        <div>
+          <label className="label">Kind</label>
+          <select value={selectedChildId} onChange={(e) => setSelectedChildId(e.target.value)} className="input">
+            <option value="">Alle Kinder</option>
+            {children.map((c) => <option key={c.id} value={c.id}>{c.firstName} {c.lastName}</option>)}
+          </select>
         </div>
-        <div className="stat-card">
-          <p className="stat-value">{documents.filter((d) => d.storageUrl).length}</p>
-          <p className="stat-label">Mit Vorschau</p>
+        <div>
+          <label className="label">Typ</label>
+          <select value={kindFilter} onChange={(e) => setKindFilter(e.target.value as any)} className="input">
+            <option value="all">Alle</option>
+            <option value="photo">Bilder</option>
+            <option value="document">Dokumente</option>
+          </select>
         </div>
-        <div className="stat-card col-span-2 lg:col-span-1">
-          <p className="stat-value">
-            {children.length || (selectedChildId ? 1 : 0)}
-          </p>
-          <p className="stat-label">Kinder</p>
-        </div>
+        <div><label className="label">Von</label><input type="date" className="input" value={from} onChange={(e) => setFrom(e.target.value)} /></div>
+        <div><label className="label">Bis</label><input type="date" className="input" value={to} onChange={(e) => setTo(e.target.value)} /></div>
       </div>
 
       {documents.length === 0 ? (
         <div className="empty-state">
           <div className="empty-state-icon">🖼️</div>
-          <p className="text-secondary-900 font-semibold">Noch keine Fotos oder Dokumente geteilt</p>
+          <p className="text-secondary-900 font-semibold">Noch nichts geteilt</p>
           <p className="page-subtitle">Sobald die KiTA etwas teilt, erscheint es hier.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {documents.map((doc) => (
-            <div
-              key={doc.id}
-              className="card overflow-hidden p-0 hover:-translate-y-0.5 transition-all"
-            >
-              {doc.storageUrl && (
-                <img
-                  src={doc.storageUrl}
-                  alt={doc.fileName}
-                  className="w-full h-48 object-cover"
-                />
+            <button key={doc.id} type="button" onClick={() => setViewer(doc)} className="card overflow-hidden p-0 hover:-translate-y-0.5 transition-all text-left">
+              {isImg(doc) ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={doc.storageUrl} alt={doc.fileName} className="w-full h-48 object-cover" />
+              ) : (
+                <div className="h-48 flex flex-col items-center justify-center bg-secondary-50">
+                  <span className="text-5xl">📄</span><span className="chip chip-accent mt-2">Dokument</span>
+                </div>
               )}
               <div className="p-4 space-y-2">
-                <p className="font-semibold text-secondary-900 truncate">
-                  {doc.fileName}
-                </p>
+                <p className="font-semibold text-secondary-900 truncate">{doc.fileName}</p>
                 <div className="flex items-center gap-2 flex-wrap">
-                  {doc.child && (
-                    <span className="chip chip-accent">
-                      <span className="avatar avatar-sm !w-5 !h-5 !text-[10px] !rounded-md">
-                        {doc.child.firstName.charAt(0)}{doc.child.lastName.charAt(0)}
-                      </span>
-                      {doc.child.firstName} {doc.child.lastName}
-                    </span>
-                  )}
-                  <span className="chip chip-neutral">
-                    {new Date(doc.uploadedAt).toLocaleDateString('de-CH')}
-                  </span>
+                  {doc.child && <span className="chip chip-accent">{doc.child.firstName} {doc.child.lastName}</span>}
+                  <span className="chip chip-neutral">{new Date(doc.uploadedAt).toLocaleDateString('de-CH')}</span>
                 </div>
               </div>
-            </div>
+            </button>
           ))}
+        </div>
+      )}
+
+      {/* Viewer-Popup */}
+      {viewer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setViewer(null)}>
+          <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-2xl w-full max-w-2xl max-h-[92vh] overflow-y-auto p-4 shadow-elevated">
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <p className="font-semibold text-secondary-900 truncate">{viewer.fileName}</p>
+              <button onClick={() => setViewer(null)} className="btn-icon w-8 h-8 text-secondary-400 hover:bg-secondary-100">✕</button>
+            </div>
+            {isImg(viewer) ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={viewer.storageUrl} alt={viewer.fileName} className="w-full rounded-xl" />
+            ) : (
+              <div className="text-center py-8"><span className="text-6xl">📄</span><p className="text-secondary-500 mt-2">{viewer.fileName}</p></div>
+            )}
+            <div className="flex justify-end gap-2 mt-4">
+              <a href={viewer.storageUrl} download={viewer.fileName} className="btn btn-secondary btn-sm">⬇️ Herunterladen</a>
+              <button onClick={() => setViewer(null)} className="btn btn-primary btn-sm px-5">Schliessen</button>
+            </div>
+          </div>
         </div>
       )}
     </div>
