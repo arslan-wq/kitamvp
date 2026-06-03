@@ -30,8 +30,23 @@ export default function ActivitiesBoard({ childrenList, locations }: { childrenL
 
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const nowLocal = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); };
   const [form, setForm] = useState<any>(null);
+
+  const toLocalInput = (iso: string) => { const d = new Date(iso); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); };
+
+  const openEdit = (a: any) => {
+    setEditingId(a.id);
+    setForm({ childId: a.childId, type: a.type, datetime: toLocalInput(a.timestamp), details: a.details || '', notes: a.notes || '' });
+    setOpen(true);
+  };
+
+  const del = async (a: any) => {
+    if (!confirm(`Aktivität „${meta(a.type).name}" für ${a.child?.firstName} wirklich löschen?`)) return;
+    const res = await fetch(`/api/activities/${a.id}`, { method: 'DELETE' });
+    if (res.ok) await load(); else setError('Löschen fehlgeschlagen');
+  };
 
   const load = async () => {
     const qs = new URLSearchParams();
@@ -43,18 +58,19 @@ export default function ActivitiesBoard({ childrenList, locations }: { childrenL
   };
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [from, to]);
 
-  const openModal = () => { setForm({ childId: childrenList[0]?.id || '', type: 'ACTIVITY', datetime: nowLocal(), details: '', notes: '' }); setOpen(true); };
+  const openModal = () => { setEditingId(null); setForm({ childId: childrenList[0]?.id || '', type: 'ACTIVITY', datetime: nowLocal(), details: '', notes: '' }); setOpen(true); };
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.childId) { setError('Bitte ein Kind wählen.'); return; }
     setSaving(true); setError('');
     try {
-      const res = await fetch('/api/activities', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ childId: form.childId, type: form.type, timestamp: new Date(form.datetime).toISOString(), details: form.details || undefined, notes: form.notes || undefined }),
+      const payload = { childId: form.childId, type: form.type, timestamp: new Date(form.datetime).toISOString(), details: form.details || undefined, notes: form.notes || undefined };
+      const res = await fetch(editingId ? `/api/activities/${editingId}` : '/api/activities', {
+        method: editingId ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
       });
-      if (res.ok) { setOpen(false); await load(); }
+      if (res.ok) { setOpen(false); setEditingId(null); await load(); }
       else { const d = await res.json().catch(() => ({})); setError(d.error || 'Speichern fehlgeschlagen'); }
     } finally { setSaving(false); }
   };
@@ -102,7 +118,7 @@ export default function ActivitiesBoard({ childrenList, locations }: { childrenL
   const Card = ({ a }: { a: any }) => {
     const m = meta(a.type);
     return (
-      <div className="card p-3">
+      <div className="card p-3 group">
         <div className="flex items-center gap-2">
           <span className="text-xl">{m.icon}</span>
           <div className="min-w-0 flex-1">
@@ -112,6 +128,13 @@ export default function ActivitiesBoard({ childrenList, locations }: { childrenL
           <Avatar a={a} />
         </div>
         <p className="text-xs text-secondary-600 mt-1 truncate">{a.child?.firstName} {a.child?.lastName}{a.details ? ` · ${a.details}` : ''}</p>
+        <div className="flex items-center justify-between mt-1.5 gap-2">
+          {a.creatorName ? <span className="text-[10px] text-secondary-400 truncate">✎ {a.creatorName}</span> : <span />}
+          <div className="flex gap-1 shrink-0">
+            <button onClick={() => openEdit(a)} title="Bearbeiten" className="btn-icon w-6 h-6 text-secondary-400 hover:bg-primary-50 hover:text-primary-700">✏️</button>
+            <button onClick={() => del(a)} title="Löschen" className="btn-icon w-6 h-6 text-secondary-400 hover:bg-red-50 hover:text-red-600">🗑️</button>
+          </div>
+        </div>
       </div>
     );
   };
@@ -175,9 +198,14 @@ export default function ActivitiesBoard({ childrenList, locations }: { childrenL
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-semibold text-secondary-900">{m.name} · {a.child?.firstName} {a.child?.lastName}</p>
                           {a.details && <p className="text-xs text-secondary-600 truncate">{a.details}</p>}
+                          {a.creatorName && <p className="text-[10px] text-secondary-400">✎ {a.creatorName}</p>}
                         </div>
-                        {a.child?.location?.name && <span className="chip chip-accent shrink-0">📍 {a.child.location.name}</span>}
+                        {a.child?.location?.name && <span className="chip chip-accent shrink-0 hidden sm:inline-flex">📍 {a.child.location.name}</span>}
                         <span className="text-xs text-secondary-400 shrink-0">{time(a.timestamp)}</span>
+                        <div className="flex gap-1 shrink-0">
+                          <button onClick={() => openEdit(a)} title="Bearbeiten" className="btn-icon w-7 h-7 text-secondary-400 hover:bg-primary-50 hover:text-primary-700">✏️</button>
+                          <button onClick={() => del(a)} title="Löschen" className="btn-icon w-7 h-7 text-secondary-400 hover:bg-red-50 hover:text-red-600">🗑️</button>
+                        </div>
                       </div>
                     </div>
                   );
@@ -192,7 +220,7 @@ export default function ActivitiesBoard({ childrenList, locations }: { childrenL
       {open && form && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setOpen(false)}>
           <form onClick={e => e.stopPropagation()} onSubmit={save} className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 space-y-4 shadow-elevated">
-            <h2 className="text-xl font-bold text-secondary-900">Neue Aktivität</h2>
+            <h2 className="text-xl font-bold text-secondary-900">{editingId ? 'Aktivität bearbeiten' : 'Neue Aktivität'}</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div><label className="label label-required">Kind</label>
                 <select className="input" value={form.childId} onChange={e => setForm({ ...form, childId: e.target.value })} required>

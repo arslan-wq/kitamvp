@@ -165,6 +165,7 @@ model Parent {
   lastName      String
   phone         String
   photoUrl      String?                @db.Text // Profilfoto (Data-URL, klein verkleinert)
+  archivedAt    DateTime?              // Archiviert (ausgeblendet); aus Archiv endgültig löschbar
   children      Child[]                @relation("ChildParents")
   deviceTokens  ParentDeviceToken[]    @relation("ParentTokens")
   resetToken       String?   @unique

@@ -31,7 +31,9 @@ export default function DailyReportsTimeline({ childrenList, locations }: { chil
   // Modal
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const nowLocal = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); };
+  const toLocalInput = (iso: string) => { const d = new Date(iso); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); };
   const [form, setForm] = useState<any>(null);
 
   const load = async () => {
@@ -46,6 +48,7 @@ export default function DailyReportsTimeline({ childrenList, locations }: { chil
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [from, to]);
 
   const openModal = () => {
+    setEditingId(null);
     setForm({
       childId: childrenList[0]?.id || '',
       datetime: nowLocal(),
@@ -57,6 +60,29 @@ export default function DailyReportsTimeline({ childrenList, locations }: { chil
       incident: '',
     });
     setOpen(true);
+  };
+
+  const openEdit = (r: any) => {
+    setEditingId(r.id);
+    const mealsArr = parseArr(r.meals);
+    const incArr = parseArr(r.incidents);
+    setForm({
+      childId: r.childId,
+      datetime: toLocalInput(r.date),
+      mood: r.mood || '',
+      meals: { breakfast: mealsArr.some((m: any) => m.type === 'breakfast'), lunch: mealsArr.some((m: any) => m.type === 'lunch'), snack: mealsArr.some((m: any) => m.type === 'snack') },
+      sleepDuration: r.sleepDuration ?? '',
+      toiletVisits: r.toiletVisits ?? '',
+      notes: r.notes || '',
+      incident: incArr[0]?.description || incArr[0]?.text || '',
+    });
+    setOpen(true);
+  };
+
+  const del = async (r: any) => {
+    if (!confirm(`Tagesbericht für ${r.child?.firstName} (${new Date(r.date).toLocaleDateString('de-CH')}) wirklich löschen?`)) return;
+    const res = await fetch(`/api/daily-reports/${r.id}`, { method: 'DELETE' });
+    if (res.ok) await load(); else setError('Löschen fehlgeschlagen');
   };
 
   const save = async (e: React.FormEvent) => {
@@ -75,8 +101,10 @@ export default function DailyReportsTimeline({ childrenList, locations }: { chil
         notes: form.notes || null,
         activities: [],
       };
-      const res = await fetch('/api/daily-reports', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-      if (res.ok) { setOpen(false); await load(); }
+      const res = await fetch(editingId ? `/api/daily-reports/${editingId}` : '/api/daily-reports', {
+        method: editingId ? 'PATCH' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+      });
+      if (res.ok) { setOpen(false); setEditingId(null); await load(); }
       else { const d = await res.json().catch(() => ({})); setError(d.error || 'Speichern fehlgeschlagen'); }
     } finally { setSaving(false); }
   };
@@ -196,7 +224,13 @@ export default function DailyReportsTimeline({ childrenList, locations }: { chil
                             </div>
                             {r.notes && <p className="text-sm text-secondary-600 mt-2">{r.notes}</p>}
                           </div>
-                          <button onClick={() => printReport(r)} className="btn btn-secondary btn-sm shrink-0" title="Als PDF drucken">🖨️ PDF</button>
+                          <div className="flex flex-col gap-1 shrink-0">
+                            <button onClick={() => printReport(r)} className="btn btn-secondary btn-sm" title="Als PDF drucken">🖨️ PDF</button>
+                            <div className="flex gap-1">
+                              <button onClick={() => openEdit(r)} title="Bearbeiten" className="btn-icon w-7 h-7 text-secondary-400 hover:bg-primary-50 hover:text-primary-700">✏️</button>
+                              <button onClick={() => del(r)} title="Löschen" className="btn-icon w-7 h-7 text-secondary-400 hover:bg-red-50 hover:text-red-600">🗑️</button>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -212,7 +246,7 @@ export default function DailyReportsTimeline({ childrenList, locations }: { chil
       {open && form && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setOpen(false)}>
           <form onClick={e => e.stopPropagation()} onSubmit={save} className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 space-y-4 shadow-elevated">
-            <h2 className="text-xl font-bold text-secondary-900">Neuer Tagesbericht</h2>
+            <h2 className="text-xl font-bold text-secondary-900">{editingId ? 'Tagesbericht bearbeiten' : 'Neuer Tagesbericht'}</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div><label className="label label-required">Kind</label>
                 <select className="input" value={form.childId} onChange={e => setForm({ ...form, childId: e.target.value })} required>

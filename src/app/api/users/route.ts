@@ -59,7 +59,7 @@ export async function GET() {
     })),
     parents: parents.map((p) => ({
       id: p.id, email: p.email, firstName: p.firstName, lastName: p.lastName, phone: p.phone,
-      photoUrl: p.photoUrl, children: p.children, createdAt: p.createdAt,
+      photoUrl: p.photoUrl, archivedAt: p.archivedAt, children: p.children, createdAt: p.createdAt,
     })),
   });
 }

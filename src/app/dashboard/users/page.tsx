@@ -106,6 +106,26 @@ export default function UsersPage() {
     } finally { setBusyReset(null); }
   };
 
+  const archiveParent = async (p: any, archive: boolean) => {
+    setMsg('');
+    const res = await fetch(`/api/users/${p.id}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'parent', archive }),
+    });
+    if (res.ok) { setMsg(archive ? '✅ Elternteil archiviert.' : '✅ Aus dem Archiv geholt.'); load(); }
+    else setMsg('❌ Aktion fehlgeschlagen.');
+  };
+
+  const deleteParent = async (p: any) => {
+    const kids = (p.children || []).map((c: any) => c.firstName).join(', ');
+    if (!confirm(`„${p.firstName} ${p.lastName}" endgültig löschen?${kids ? `\n\nDas verbundene Kind wird ebenfalls gelöscht: ${kids}` : ''}\n\nDies kann nicht rückgängig gemacht werden.`)) return;
+    setMsg('');
+    const res = await fetch(`/api/users/${p.id}?type=parent`, { method: 'DELETE' });
+    const d = await res.json().catch(() => ({}));
+    if (res.ok) { setMsg(`✅ Gelöscht${d.deletedChildren ? ` (inkl. ${d.deletedChildren} Kind/er)` : ''}.`); load(); }
+    else setMsg(`❌ ${d.error || 'Löschen fehlgeschlagen'}`);
+  };
+
   const openEdit = (p: any) => {
     setEditing({ ...p, type: tab });
     setEditForm({
@@ -162,8 +182,8 @@ export default function UsersPage() {
           <p className="eyebrow">Verwaltung</p>
           <h1 className="page-title">Benutzer</h1>
         </div>
-        {!showForm && (
-          <button onClick={() => { setForm((f: any) => ({ ...f, type: tab, photoUrl: null })); setShowForm(true); }} className="btn btn-primary">+ Person hinzufügen</button>
+        {!showForm && tab === 'staff' && (
+          <button onClick={() => { setForm((f: any) => ({ ...f, type: 'staff', photoUrl: null })); setShowForm(true); }} className="btn btn-primary">+ Personal hinzufügen</button>
         )}
       </div>
 
@@ -175,13 +195,10 @@ export default function UsersPage() {
         <button onClick={() => setTab('parent')} className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition ${tab === 'parent' ? 'bg-white shadow-sm text-secondary-900' : 'text-secondary-500'}`}>Eltern ({parents.length})</button>
       </div>
 
-      {/* Anlege-Formular */}
+      {/* Anlege-Formular — nur Personal. Eltern werden über das Anlegen eines Kindes eingeladen. */}
       {showForm && (
         <form onSubmit={create} className="card p-6 sm:p-8 space-y-4">
-          <div className="flex gap-2">
-            <button type="button" onClick={() => setForm((f: any) => ({ ...f, type: 'staff' }))} className={`btn btn-sm ${form.type === 'staff' ? 'btn-primary' : 'btn-secondary'}`}>Personal</button>
-            <button type="button" onClick={() => setForm((f: any) => ({ ...f, type: 'parent' }))} className={`btn btn-sm ${form.type === 'parent' ? 'btn-primary' : 'btn-secondary'}`}>Elternteil</button>
-          </div>
+          <p className="text-sm text-secondary-500">Eltern werden automatisch beim Anlegen eines Kindes per E-Mail eingeladen und erscheinen danach hier.</p>
 
           {/* Pflicht-Profilfoto */}
           <div>
@@ -225,12 +242,12 @@ export default function UsersPage() {
       )}
 
       {/* Liste — anklickbare Karten */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {(tab === 'staff' ? staff : parents).map((p: any) => {
+      {(() => {
+        const PersonCard = ({ p, archived = false }: { p: any; archived?: boolean }) => {
           const name = tab === 'staff' ? p.name : `${p.firstName} ${p.lastName}`;
           const ini = tab === 'staff' ? initials(p.name) : initials(p.firstName, p.lastName);
           return (
-            <div key={p.id} className="card p-4 flex items-center gap-3">
+            <div className={`card p-4 flex items-center gap-3 ${archived ? 'opacity-70' : ''}`}>
               <button onClick={() => openEdit(p)} className="flex items-center gap-3 min-w-0 flex-1 text-left hover:opacity-80 transition" title="Bearbeiten">
                 <Avatar src={p.photoUrl} label={ini} />
                 <div className="min-w-0 flex-1">
@@ -239,6 +256,7 @@ export default function UsersPage() {
                     {tab === 'staff'
                       ? <span className={`chip ${ROLE_CHIP[p.role] || 'chip-neutral'}`}>{ROLE_LABEL[p.role] || p.role}</span>
                       : <span className="chip chip-neutral">Eltern</span>}
+                    {archived && <span className="chip chip-warning">Archiviert</span>}
                   </div>
                   <p className="text-sm text-secondary-500 truncate">{p.email}</p>
                   {tab === 'staff' && p.location && <p className="text-xs text-secondary-400">📍 {p.location.name}</p>}
@@ -248,18 +266,54 @@ export default function UsersPage() {
                 </div>
               </button>
               <div className="flex flex-col gap-1.5 shrink-0">
-                <button onClick={() => openEdit(p)} className="btn btn-secondary btn-sm" title="Bearbeiten">✏️ Bearbeiten</button>
-                <button onClick={() => sendReset(p.email)} disabled={busyReset === p.email} className="btn btn-secondary btn-sm" title="Passwort-Reset-Mail senden">
-                  {busyReset === p.email ? '…' : '🔑 Reset'}
-                </button>
+                {!archived && <button onClick={() => openEdit(p)} className="btn btn-secondary btn-sm" title="Bearbeiten">✏️ Bearbeiten</button>}
+                {!archived && (
+                  <button onClick={() => sendReset(p.email)} disabled={busyReset === p.email} className="btn btn-secondary btn-sm" title="Passwort-Reset-Mail senden">
+                    {busyReset === p.email ? '…' : '🔑 Reset'}
+                  </button>
+                )}
+                {tab === 'parent' && !archived && (
+                  <button onClick={() => archiveParent(p, true)} className="btn btn-secondary btn-sm" title="Archivieren">🗄️ Archivieren</button>
+                )}
+                {tab === 'parent' && archived && (
+                  <>
+                    <button onClick={() => archiveParent(p, false)} className="btn btn-secondary btn-sm" title="Aus Archiv holen">↩ Wiederherstellen</button>
+                    <button onClick={() => deleteParent(p)} className="btn btn-sm text-red-600 hover:bg-red-50" title="Endgültig löschen">🗑️ Löschen</button>
+                  </>
+                )}
               </div>
             </div>
           );
-        })}
-        {(tab === 'staff' ? staff : parents).length === 0 && (
-          <p className="text-secondary-500">Keine Einträge.</p>
-        )}
-      </div>
+        };
+
+        if (tab === 'staff') {
+          return (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {staff.map((p: any) => <PersonCard key={p.id} p={p} />)}
+              {staff.length === 0 && <p className="text-secondary-500">Keine Einträge.</p>}
+            </div>
+          );
+        }
+
+        const active = parents.filter((p: any) => !p.archivedAt);
+        const archivedList = parents.filter((p: any) => p.archivedAt);
+        return (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {active.map((p: any) => <PersonCard key={p.id} p={p} />)}
+              {active.length === 0 && <p className="text-secondary-500">Keine aktiven Eltern.</p>}
+            </div>
+            {archivedList.length > 0 && (
+              <div>
+                <p className="eyebrow mb-3">🗄️ Archiv ({archivedList.length})</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {archivedList.map((p: any) => <PersonCard key={p.id} p={p} archived />)}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Bearbeiten-Modal */}
       {editing && editForm && (

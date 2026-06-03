@@ -51,7 +51,15 @@ export async function GET(request: NextRequest) {
     orderBy: { timestamp: 'desc' },
   });
 
-  return NextResponse.json(activities);
+  // T2: Ersteller-Namen auflösen (welcher Betreuer/Leiter hat eingepflegt)
+  const creatorIds = Array.from(new Set(activities.map((a) => a.createdBy).filter(Boolean)));
+  const creators = creatorIds.length
+    ? await prisma.user.findMany({ where: { id: { in: creatorIds } }, select: { id: true, name: true } })
+    : [];
+  const nameById = new Map(creators.map((u) => [u.id, u.name]));
+  const withCreator = activities.map((a) => ({ ...a, creatorName: nameById.get(a.createdBy) || null }));
+
+  return NextResponse.json(withCreator);
 }
 
 export async function POST(request: NextRequest) {
