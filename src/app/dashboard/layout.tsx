@@ -29,8 +29,9 @@ export default function DashboardLayout({
     ];
 
     const role = (session?.user as any)?.role;
-    // Benutzerverwaltung für Admin & Leitung
+    // Menüplan & Benutzerverwaltung für Admin & Leitung
     if (role === 'ADMIN' || role === 'KITA_LEITER') {
+      allItems.push({ label: '🍽️ Menüplan', href: '/dashboard/meal-plans' });
       allItems.push({ label: '👥 Benutzer', href: '/dashboard/users' });
     }
     // Nur Admin: Verträge & Abrechnung

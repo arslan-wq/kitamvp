@@ -30,6 +30,17 @@ export default function MealPlanManager({ kitaId }: { kitaId: string }) {
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState<'success' | 'error'>('success');
+  const [loadedId, setLoadedId] = useState<string | null>(null);
+  const [plans, setPlans] = useState<any[]>([]);
+
+  // Übersicht: aktuelle + künftige Wochen
+  const loadPlans = useCallback(async () => {
+    try {
+      const res = await fetch('/api/meal-plans');
+      setPlans(res.ok ? await res.json() : []);
+    } catch { /* still */ }
+  }, []);
+  useEffect(() => { loadPlans(); }, [loadPlans]);
 
   // Bestehenden Plan der gewählten Woche laden
   const loadWeek = useCallback(async (ws: Date) => {
@@ -38,15 +49,32 @@ export default function MealPlanManager({ kitaId }: { kitaId: string }) {
       const data = res.ok ? await res.json() : [];
       const plan = Array.isArray(data) ? data.find((p: any) => new Date(p.weekStart).toDateString() === ws.toDateString()) : null;
       if (plan) {
+        setLoadedId(plan.id);
         try {
           const m = JSON.parse(plan.meals);
           setMeals(DAYS.map((day) => { const f = m.find((x: any) => x.day === day) || {}; return { day, breakfast: f.breakfast || '', lunch: f.lunch || '', snack: f.snack || '', notes: f.notes || '' }; }));
         } catch { setMeals(emptyMeals()); }
         try { setAllergenInfo(plan.allergenInfo ? JSON.parse(plan.allergenInfo) : []); } catch { setAllergenInfo([]); }
-      } else { setMeals(emptyMeals()); setAllergenInfo([]); }
+      } else { setLoadedId(null); setMeals(emptyMeals()); setAllergenInfo([]); }
     } catch { /* still */ }
   }, []);
   useEffect(() => { loadWeek(mondayOf(weekDate)); }, [weekDate, loadWeek]);
+
+  const deletePlan = async () => {
+    if (!loadedId) return;
+    if (!confirm('Menüplan dieser Woche wirklich löschen?')) return;
+    setIsLoading(true); setMessage('');
+    try {
+      const res = await fetch(`/api/meal-plans/${loadedId}`, { method: 'DELETE' });
+      if (res.ok) {
+        setMessageType('success'); setMessage('🗑️ Menüplan gelöscht.');
+        setLoadedId(null); setMeals(emptyMeals()); setAllergenInfo([]);
+        await loadPlans();
+      } else { setMessageType('error'); setMessage('Löschen fehlgeschlagen'); }
+    } finally { setIsLoading(false); }
+  };
+
+  const dateToInput = (iso: string) => { const d = new Date(iso); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 
   const handleMealChange = (index: number, field: string, value: string) => {
     const updated = [...meals]; (updated[index] as any)[field] = value; setMeals(updated);
@@ -77,6 +105,7 @@ export default function MealPlanManager({ kitaId }: { kitaId: string }) {
       const m = await saveFor(mondayOf(weekDate));
       setMessageType('success');
       setMessage(`✅ Menüplan für die Woche vom ${m.toLocaleDateString('de-CH')} gespeichert.`);
+      await loadPlans(); await loadWeek(m);
     } catch (err) {
       setMessageType('error'); setMessage(err instanceof Error ? err.message : 'Fehler beim Speichern');
     } finally { setIsLoading(false); }
@@ -90,6 +119,7 @@ export default function MealPlanManager({ kitaId }: { kitaId: string }) {
       await saveFor(target);
       setMessageType('success');
       setMessage(`✅ Menüplan auf die Woche vom ${target.toLocaleDateString('de-CH')} dupliziert.`);
+      await loadPlans();
     } catch (err) {
       setMessageType('error'); setMessage(err instanceof Error ? err.message : 'Duplizieren fehlgeschlagen');
     } finally { setIsLoading(false); }
@@ -166,8 +196,42 @@ export default function MealPlanManager({ kitaId }: { kitaId: string }) {
         <button type="button" onClick={addAllergen} className="btn btn-secondary">+ Allergen hinzufügen</button>
       </div>
 
-      <div className="flex justify-end">
-        <button type="submit" disabled={isLoading} className="btn btn-primary btn-lg px-6">{isLoading ? '⏳ speichert…' : '✅ Menüplan speichern'}</button>
+      <div className="flex justify-end gap-3">
+        {loadedId && (
+          <button type="button" onClick={deletePlan} disabled={isLoading} className="btn btn-secondary text-red-700">🗑️ Diese Woche löschen</button>
+        )}
+        <button type="submit" disabled={isLoading} className="btn btn-primary btn-lg px-6">{isLoading ? '⏳ speichert…' : (loadedId ? '💾 Änderungen speichern' : '✅ Menüplan speichern')}</button>
+      </div>
+
+      {/* Geplante Wochen — Übersicht (2–3 Monate vorausplanen) */}
+      <div className="card p-6">
+        <p className="eyebrow mb-3">Geplante Wochen</p>
+        {plans.length === 0 ? (
+          <p className="text-sm text-secondary-400">Noch keine Menüpläne erfasst. Wähle oben eine Woche und speichere.</p>
+        ) : (
+          <div className="space-y-2">
+            {plans.map((p) => {
+              const ws = new Date(p.weekStart);
+              const we = new Date(ws); we.setDate(we.getDate() + 4);
+              const active = loadedId === p.id;
+              return (
+                <div key={p.id} className={`flex items-center justify-between gap-3 p-3 rounded-xl ${active ? 'bg-primary-50 ring-1 ring-primary-200' : 'surface'}`}>
+                  <span className="text-sm font-medium text-secondary-900">
+                    Woche {ws.toLocaleDateString('de-CH')} – {we.toLocaleDateString('de-CH')}
+                  </span>
+                  <div className="flex gap-2 shrink-0">
+                    <button type="button" onClick={() => setWeekDate(dateToInput(p.weekStart))} className="btn btn-secondary btn-sm">✏️ Bearbeiten</button>
+                    <button type="button" onClick={async () => {
+                      if (!confirm('Diesen Menüplan löschen?')) return;
+                      const res = await fetch(`/api/meal-plans/${p.id}`, { method: 'DELETE' });
+                      if (res.ok) { if (loadedId === p.id) { setLoadedId(null); setMeals(emptyMeals()); setAllergenInfo([]); } await loadPlans(); }
+                    }} className="btn btn-sm text-red-600 hover:bg-red-50">🗑️</button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </form>
   );
