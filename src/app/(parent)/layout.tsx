@@ -20,6 +20,7 @@ export default async function ParentLayout({
     { label: 'Meine Kinder', href: '/children' },
     { label: 'Betreuungstage', href: '/bookings' },
     { label: 'Tagesberichte', href: '/daily-reports' },
+    { label: 'Aktivitäten', href: '/activities' },
     { label: 'Pinnwand', href: '/messages' },
     { label: 'Bilder & Dokumente', href: '/documents' },
     { label: 'Kita Kontakt', href: '/kontakt' },

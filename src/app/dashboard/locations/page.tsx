@@ -126,8 +126,6 @@ export default function LocationsPage() {
       [id]: { assigned: !prev[id]?.assigned, workingHours: prev[id]?.workingHours || '' },
     }));
 
-  const setStaffHours = (id: string, workingHours: string) =>
-    setStaffAssign(prev => ({ ...prev, [id]: { assigned: prev[id]?.assigned ?? true, workingHours } }));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -297,30 +295,22 @@ export default function LocationsPage() {
             </div>
           </div>
 
-          {/* Personal zuweisen */}
+          {/* Personal zuweisen — Arbeitszeiten folgen später separat */}
           <div className="mt-6">
-            <p className="eyebrow mb-3">👤 Personal zuweisen & Arbeitszeiten</p>
+            <p className="eyebrow mb-3">👤 Personal zuweisen</p>
             {allStaff.length === 0 ? (
               <p className="text-sm text-secondary-400">Kein Personal verfügbar.</p>
             ) : (
               <div className="space-y-2">
                 {allStaff.map(s => {
-                  const a = staffAssign[s.id];
-                  const checked = !!a?.assigned;
+                  const checked = !!staffAssign[s.id]?.assigned;
                   return (
-                    <div key={s.id} className="flex flex-col sm:flex-row sm:items-center gap-2 p-2.5 surface rounded-xl">
-                      <label className="flex items-center gap-2 flex-1 cursor-pointer min-w-0">
-                        <input type="checkbox" checked={checked} onChange={() => toggleStaff(s.id)}
-                          className="w-4 h-4 accent-primary-600" />
-                        <span className="font-medium text-secondary-900 truncate">{s.name}</span>
-                        <span className="chip chip-neutral shrink-0">{s.role}</span>
-                      </label>
-                      {checked && (
-                        <input type="text" value={a?.workingHours || ''}
-                          onChange={e => setStaffHours(s.id, e.target.value)}
-                          className="input sm:max-w-[220px]" placeholder="Arbeitszeit z.B. Mo–Fr 08:00–17:00" />
-                      )}
-                    </div>
+                    <label key={s.id} className="flex items-center gap-2 p-2.5 surface rounded-xl cursor-pointer">
+                      <input type="checkbox" checked={checked} onChange={() => toggleStaff(s.id)}
+                        className="w-4 h-4 accent-primary-600" />
+                      <span className="font-medium text-secondary-900 truncate">{s.name}</span>
+                      <span className="chip chip-neutral shrink-0">{s.role}</span>
+                    </label>
                   );
                 })}
               </div>
