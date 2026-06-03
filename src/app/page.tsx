@@ -11,11 +11,9 @@ export default function Home() {
       {/* Header */}
       <header className="bg-white shadow-soft">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition">
-            <div className="h-10 w-10 bg-gradient-to-br from-primary-500 to-kita-500 rounded-xl flex items-center justify-center">
-              <span className="text-white font-bold text-lg">K</span>
-            </div>
-            <h1 className="text-2xl font-bold text-gray-900">KitaLuna</h1>
+          <Link href="/" className="flex items-center hover:opacity-80 transition">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/brand/kitaluna-wordmark.svg" alt="KitaLuna" className="h-9 sm:h-10 w-auto" />
           </Link>
           <nav className="flex gap-4 items-center">
             {session?.user ? (

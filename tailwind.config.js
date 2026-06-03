@@ -8,20 +8,22 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // KitaLuna Brand Colors — weiche, warme Pastelltöne
-        // Primär: Salbeigrün (Hauptaktionen)
+        // KitaLuna Brand Colors
+        // Primär: Anthrazit/Grau (Hauptaktionen) — #555555 ersetzt das frühere Grün
         primary: {
-          50: '#F2F8F3',
-          100: '#E1EFE4',
-          200: '#C3DFC9',
-          300: '#9FCBA8',
-          400: '#76B284',
-          500: '#579A67',
-          600: '#458052',
-          700: '#386A43',
-          800: '#2F5537',
-          900: '#26442D',
+          50: '#F4F4F4',
+          100: '#E8E8E8',
+          200: '#D4D4D4',
+          300: '#B4B4B4',
+          400: '#8A8A8A',
+          500: '#6E6E6E',
+          600: '#555555',
+          700: '#444444',
+          800: '#363636',
+          900: '#262626',
         },
+        // App-Hintergrund (KitaLuna Aesch-Mint)
+        background: '#D0EFE7',
         // Sekundär: präzise, neutrale Grautöne (Apple/UBS-Ästhetik)
         secondary: {
           50: '#F5F5F7',

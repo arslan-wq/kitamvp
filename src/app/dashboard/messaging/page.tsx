@@ -5,7 +5,7 @@ import { prisma } from '@/lib/db';
 import MessagingClient from './components/MessagingClient';
 
 export const metadata = {
-  title: 'Nachrichten | KiTA Dashboard',
+  title: 'Pinnwand | KiTA Dashboard',
   description: 'Kommunikation mit Eltern und Verwaltung von Ankündigungen',
 };
 
@@ -37,8 +37,8 @@ export default async function MessagingPage() {
     <div className="space-y-6">
       <div>
         <p className="eyebrow">Kommunikation</p>
-        <h1 className="page-title">Nachrichten</h1>
-        <p className="page-subtitle">Kind-Nachrichten und Ankündigungen an einem Ort</p>
+        <h1 className="page-title">Pinnwand</h1>
+        <p className="page-subtitle">Kind-Pinnwand und Ankündigungen an einem Ort</p>
       </div>
 
       <MessagingClient

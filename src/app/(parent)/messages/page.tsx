@@ -100,7 +100,7 @@ export default function ParentMessagesPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="page-title">💬 Nachrichten</h1>
+          <h1 className="page-title">💬 Pinnwand</h1>
           <p className="page-subtitle">Im Austausch mit dem KiTA-Team bleiben</p>
         </div>
       </div>
@@ -112,7 +112,7 @@ export default function ParentMessagesPage() {
         </div>
         <div className="stat-card">
           <p className="stat-value">{messages.length}</p>
-          <p className="stat-label">Nachrichten</p>
+          <p className="stat-label">Pinnwand</p>
         </div>
         <div className="stat-card col-span-2 lg:col-span-1">
           <p className="stat-value">{selectedChild ? selectedChild.firstName : '—'}</p>
@@ -178,7 +178,7 @@ export default function ParentMessagesPage() {
               {messages.length === 0 ? (
                 <div className="empty-state border-0 shadow-none bg-transparent p-0 h-full flex flex-col items-center justify-center">
                   <div className="empty-state-icon">📭</div>
-                  <p className="text-secondary-500">Noch keine Nachrichten</p>
+                  <p className="text-secondary-500">Noch keine Pinnwand</p>
                 </div>
               ) : (
                 <div className="space-y-3">

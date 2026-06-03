@@ -91,7 +91,7 @@ export default function MessageView() {
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <div>
           <p className="eyebrow">Kommunikation</p>
-          <h1 className="page-title">Nachrichten</h1>
+          <h1 className="page-title">Pinnwand</h1>
           <p className="page-subtitle">Austausch mit den Eltern pro Kind</p>
         </div>
         <div className="w-full sm:w-64">
@@ -128,7 +128,7 @@ export default function MessageView() {
                 {selectedChild ? `${selectedChild.firstName} ${selectedChild.lastName}` : 'Konversation'}
               </p>
               <p className="text-xs text-secondary-500">
-                {messages.length} {messages.length === 1 ? 'Nachricht' : 'Nachrichten'}
+                {messages.length} {messages.length === 1 ? 'Nachricht' : 'Pinnwand'}
               </p>
             </div>
           </div>
@@ -138,7 +138,7 @@ export default function MessageView() {
             {messages.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-center">
                 <div className="empty-state-icon">💬</div>
-                <p className="text-secondary-500">Noch keine Nachrichten</p>
+                <p className="text-secondary-500">Noch keine Pinnwand</p>
                 <p className="text-sm text-secondary-400 mt-1">Schreibe die erste Nachricht unten.</p>
               </div>
             ) : (
@@ -195,7 +195,7 @@ export default function MessageView() {
       ) : (
         <div className="empty-state">
           <div className="empty-state-icon">💬</div>
-          <p className="text-secondary-500">Wähle ein Kind aus, um die Nachrichten anzuzeigen.</p>
+          <p className="text-secondary-500">Wähle ein Kind aus, um die Pinnwand anzuzeigen.</p>
         </div>
       )}
     </div>

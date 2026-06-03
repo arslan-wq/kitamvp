@@ -11,7 +11,7 @@ html {
 
 body {
   @apply text-secondary-900;
-  background-color: #F5F5F7; /* neutrales Hellgrau (Apple/UBS) */
+  background-color: #D0EFE7; /* KitaLuna Aesch-Mint */
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
   font-feature-settings: 'cv11', 'ss01';
   -webkit-font-smoothing: antialiased;
@@ -39,7 +39,7 @@ body {
   }
 
   /* Präzise Auswahl-/Fokusfarbe */
-  ::selection { background-color: #C3DFC9; }
+  ::selection { background-color: #B5E2D6; }
 
   /* Native Formular-Elemente in Markenfarbe (Apple-Look) */
   input[type='checkbox'],
@@ -47,7 +47,7 @@ body {
   input[type='date'],
   input[type='datetime-local'],
   input[type='time'] {
-    accent-color: #458052;
+    accent-color: #555555;
   }
 }
 

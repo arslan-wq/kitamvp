@@ -100,14 +100,14 @@ export async function sendParentInvitationEmail(
 export async function sendPasswordResetEmail(email: string, resetUrl: string, name?: string) {
   const html = `
     <div style="max-width:600px;margin:0 auto;font-family:Arial,sans-serif;color:#1d1d1f">
-      <div style="background:#458052;color:#fff;padding:28px;text-align:center;border-radius:16px 16px 0 0">
+      <div style="background:#555555;color:#fff;padding:28px;text-align:center;border-radius:16px 16px 0 0">
         <h1 style="margin:0">Passwort zurücksetzen</h1>
       </div>
       <div style="background:#f5f5f7;padding:28px;border-radius:0 0 16px 16px">
         <p>Hallo${name ? ' ' + name : ''},</p>
         <p>Sie haben das Zurücksetzen Ihres KitaLuna-Passworts angefordert. Klicken Sie auf den Button, um ein neues Passwort zu wählen:</p>
         <p style="text-align:center;margin:24px 0">
-          <a href="${resetUrl}" style="display:inline-block;background:#458052;color:#fff;padding:12px 28px;text-decoration:none;border-radius:12px;font-weight:bold">Neues Passwort wählen →</a>
+          <a href="${resetUrl}" style="display:inline-block;background:#555555;color:#fff;padding:12px 28px;text-decoration:none;border-radius:12px;font-weight:bold">Neues Passwort wählen →</a>
         </p>
         <p style="color:#6e6e73;font-size:13px">Der Link ist 1 Stunde gültig. Falls Sie das nicht angefordert haben, ignorieren Sie diese E-Mail einfach.</p>
         <p style="color:#6e6e73;font-size:12px;margin-top:24px">KitaLuna</p>
@@ -139,7 +139,7 @@ export async function sendNewMessageEmail(
   const safePreview = (opts.preview || '').slice(0, 240);
   const html = `
     <div style="max-width:600px;margin:0 auto;font-family:Arial,sans-serif;color:#1d1d1f">
-      <div style="background:#458052;color:#fff;padding:28px;text-align:center;border-radius:16px 16px 0 0">
+      <div style="background:#555555;color:#fff;padding:28px;text-align:center;border-radius:16px 16px 0 0">
         <h1 style="margin:0;font-size:22px">${heading}</h1>
       </div>
       <div style="background:#f5f5f7;padding:28px;border-radius:0 0 16px 16px">
@@ -148,7 +148,7 @@ export async function sendNewMessageEmail(
         ${opts.title ? `<p style="font-weight:bold;margin-bottom:4px">${opts.title}</p>` : ''}
         <div style="background:#fff;border:1px solid #ddd;border-radius:12px;padding:14px;color:#48484a">${safePreview}</div>
         <p style="text-align:center;margin:24px 0">
-          <a href="${link}" style="display:inline-block;background:#458052;color:#fff;padding:12px 28px;text-decoration:none;border-radius:12px;font-weight:bold">Mitteilung ansehen →</a>
+          <a href="${link}" style="display:inline-block;background:#555555;color:#fff;padding:12px 28px;text-decoration:none;border-radius:12px;font-weight:bold">Mitteilung ansehen →</a>
         </p>
         <p style="color:#6e6e73;font-size:12px;margin-top:24px">KitaLuna – Eltern Portal</p>
       </div>
@@ -167,14 +167,14 @@ export async function sendDailyReportEmail(
   const subject = `Tagesbericht für ${opts.childName} – ${opts.dateLabel}`;
   const html = `
     <div style="max-width:600px;margin:0 auto;font-family:Arial,sans-serif;color:#1d1d1f">
-      <div style="background:#458052;color:#fff;padding:28px;text-align:center;border-radius:16px 16px 0 0">
+      <div style="background:#555555;color:#fff;padding:28px;text-align:center;border-radius:16px 16px 0 0">
         <h1 style="margin:0;font-size:22px">📋 Neuer Tagesbericht</h1>
       </div>
       <div style="background:#f5f5f7;padding:28px;border-radius:0 0 16px 16px">
         <p>Hallo${opts.parentName ? ' ' + opts.parentName : ''},</p>
         <p>für <strong>${opts.childName}</strong> wurde ein neuer Tagesbericht vom <strong>${opts.dateLabel}</strong> erfasst.</p>
         <p style="text-align:center;margin:24px 0">
-          <a href="${link}" style="display:inline-block;background:#458052;color:#fff;padding:12px 28px;text-decoration:none;border-radius:12px;font-weight:bold">Tagesbericht ansehen →</a>
+          <a href="${link}" style="display:inline-block;background:#555555;color:#fff;padding:12px 28px;text-decoration:none;border-radius:12px;font-weight:bold">Tagesbericht ansehen →</a>
         </p>
         <p style="color:#6e6e73;font-size:12px;margin-top:24px">KitaLuna – Eltern Portal</p>
       </div>
@@ -193,7 +193,7 @@ export async function sendActivityEmail(
   const subject = `Aktivität: ${opts.childName} – ${opts.activityLabel}`;
   const html = `
     <div style="max-width:600px;margin:0 auto;font-family:Arial,sans-serif;color:#1d1d1f">
-      <div style="background:#458052;color:#fff;padding:28px;text-align:center;border-radius:16px 16px 0 0">
+      <div style="background:#555555;color:#fff;padding:28px;text-align:center;border-radius:16px 16px 0 0">
         <h1 style="margin:0;font-size:22px">📊 Neue Aktivität</h1>
       </div>
       <div style="background:#f5f5f7;padding:28px;border-radius:0 0 16px 16px">
@@ -203,7 +203,7 @@ export async function sendActivityEmail(
           <strong>${opts.activityLabel}</strong> · ${opts.timeLabel}${opts.details ? `<br><span style="color:#48484a">${opts.details}</span>` : ''}
         </div>
         <p style="text-align:center;margin:24px 0">
-          <a href="${link}" style="display:inline-block;background:#458052;color:#fff;padding:12px 28px;text-decoration:none;border-radius:12px;font-weight:bold">Im Portal ansehen →</a>
+          <a href="${link}" style="display:inline-block;background:#555555;color:#fff;padding:12px 28px;text-decoration:none;border-radius:12px;font-weight:bold">Im Portal ansehen →</a>
         </p>
         <p style="color:#6e6e73;font-size:12px;margin-top:24px">KitaLuna – Eltern Portal</p>
       </div>
@@ -222,7 +222,7 @@ export async function sendStaffAssignmentEmail(
   const subject = `Standort-Zuweisung: ${opts.locationName}`;
   const html = `
     <div style="max-width:600px;margin:0 auto;font-family:Arial,sans-serif;color:#1d1d1f">
-      <div style="background:#458052;color:#fff;padding:28px;text-align:center;border-radius:16px 16px 0 0">
+      <div style="background:#555555;color:#fff;padding:28px;text-align:center;border-radius:16px 16px 0 0">
         <h1 style="margin:0;font-size:22px">📍 Neue Standort-Zuweisung</h1>
       </div>
       <div style="background:#f5f5f7;padding:28px;border-radius:0 0 16px 16px">
@@ -230,7 +230,7 @@ export async function sendStaffAssignmentEmail(
         <p>Du wurdest dem Standort <strong>${opts.locationName}</strong> zugewiesen.</p>
         ${opts.workingHours ? `<div style="background:#fff;border:1px solid #ddd;border-radius:12px;padding:14px"><strong>Arbeitszeiten:</strong> ${opts.workingHours}</div>` : ''}
         <p style="text-align:center;margin:24px 0">
-          <a href="${link}" style="display:inline-block;background:#458052;color:#fff;padding:12px 28px;text-decoration:none;border-radius:12px;font-weight:bold">Zum Belegungsplan →</a>
+          <a href="${link}" style="display:inline-block;background:#555555;color:#fff;padding:12px 28px;text-decoration:none;border-radius:12px;font-weight:bold">Zum Belegungsplan →</a>
         </p>
         <p style="color:#6e6e73;font-size:12px;margin-top:24px">KitaLuna</p>
       </div>
@@ -252,7 +252,7 @@ export async function sendStaffRequestEmail(
   const icon = opts.kind === 'Abmeldung' ? '🚫' : '📅';
   const html = `
     <div style="max-width:600px;margin:0 auto;font-family:Arial,sans-serif;color:#1d1d1f">
-      <div style="background:#458052;color:#fff;padding:28px;text-align:center;border-radius:16px 16px 0 0">
+      <div style="background:#555555;color:#fff;padding:28px;text-align:center;border-radius:16px 16px 0 0">
         <h1 style="margin:0;font-size:22px">${icon} Neue ${opts.kind}</h1>
       </div>
       <div style="background:#f5f5f7;padding:28px;border-radius:0 0 16px 16px">
@@ -263,7 +263,7 @@ export async function sendStaffRequestEmail(
           ${opts.notes ? `<br><span style="color:#6e6e73;font-size:13px">${opts.notes}</span>` : ''}
         </div>
         <p style="text-align:center;margin:24px 0">
-          <a href="${link}" style="display:inline-block;background:#458052;color:#fff;padding:12px 28px;text-decoration:none;border-radius:12px;font-weight:bold">Im Belegungsplan prüfen →</a>
+          <a href="${link}" style="display:inline-block;background:#555555;color:#fff;padding:12px 28px;text-decoration:none;border-radius:12px;font-weight:bold">Im Belegungsplan prüfen →</a>
         </p>
         <p style="color:#6e6e73;font-size:12px;margin-top:24px">KitaLuna</p>
       </div>

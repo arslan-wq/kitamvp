@@ -260,7 +260,7 @@ export default function ParentDashboardClient({ parent }: ParentDashboardClientP
 
           {/* Inbox Viewer */}
           <div className="space-y-4">
-            <h3 className="text-xl font-bold text-secondary-900">Nachrichten & Ankündigungen</h3>
+            <h3 className="text-xl font-bold text-secondary-900">Pinnwand & Ankündigungen</h3>
             <InboxViewer kitaId={selectedChild.kitaId} />
           </div>
         </>

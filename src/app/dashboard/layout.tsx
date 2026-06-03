@@ -21,7 +21,7 @@ export default function DashboardLayout({
       { label: '📊 Aktivitäten', href: '/dashboard/activities' },
       { label: '👶 Kinder', href: '/dashboard/children' },
       { label: '📅 Belegungsplanung', href: '/dashboard/schedule' },
-      { label: '💬 Nachrichten', href: '/dashboard/messaging' },
+      { label: '💬 Pinnwand', href: '/dashboard/messaging' },
       { label: '🏥 Medizinische Info', href: '/dashboard/medical-records' },
       { label: '📍 Standorte', href: '/dashboard/locations' },
       { label: '📞 Kita Kontakt', href: '/dashboard/kontakt' },
@@ -60,17 +60,15 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="min-h-screen bg-secondary-50">
+    <div className="min-h-screen bg-background">
       {/* Header Navigation */}
       <header className="bg-white/80 glass border-b border-gray-100 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             {/* Logo & Brand */}
-            <Link href="/dashboard" className="flex items-center gap-2.5 hover:opacity-80 transition">
-              <div className="h-9 w-9 bg-gradient-to-br from-primary-500 to-primary-700 rounded-xl flex items-center justify-center shadow-soft">
-                <span className="text-white text-base font-bold">K</span>
-              </div>
-              <span className="text-lg font-bold tracking-tight text-secondary-900 hidden sm:inline">KitaLuna</span>
+            <Link href="/dashboard" className="flex items-center hover:opacity-80 transition shrink-0">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/brand/kitaluna-wordmark.svg" alt="KitaLuna" className="h-8 sm:h-9 w-auto" />
             </Link>
 
             {/* Desktop Navigation */}

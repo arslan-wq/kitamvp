@@ -72,8 +72,8 @@ export default function DashboardPage() {
     },
     {
       emoji: '💬',
-      title: 'Nachrichten & Ankündigungen',
-      description: 'Nachrichten und Mitteilungen an Eltern',
+      title: 'Pinnwand & Ankündigungen',
+      description: 'Pinnwand und Mitteilungen an Eltern',
       href: '/dashboard/messaging',
       color: 'from-purple-500 to-pink-500',
     },

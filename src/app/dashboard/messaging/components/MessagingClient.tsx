@@ -106,7 +106,7 @@ export default function MessagingClient({ childrenList, role, locations, myLocat
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div className="flex flex-wrap items-center gap-2">
           <div className="inline-flex rounded-xl bg-secondary-100 p-1">
-            {([['all', 'Alle'], ['announcement', 'Ankündigungen'], ['child', 'Kind-Nachrichten']] as const).map(([v, l]) => (
+            {([['all', 'Alle'], ['announcement', 'Ankündigungen'], ['child', 'Kind-Pinnwand']] as const).map(([v, l]) => (
               <button key={v} onClick={() => setTypeFilter(v)} className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition ${typeFilter === v ? 'bg-white shadow-sm text-secondary-900' : 'text-secondary-500'}`}>{l}</button>
             ))}
           </div>

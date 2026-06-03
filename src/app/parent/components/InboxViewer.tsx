@@ -148,7 +148,7 @@ export default function InboxViewer({ kitaId }: InboxViewerProps) {
               : 'text-gray-600 border-transparent hover:text-gray-900'
           }`}
         >
-          💬 Nachrichten ({threads.length})
+          💬 Pinnwand ({threads.length})
         </button>
         <button
           onClick={() => {
@@ -178,7 +178,7 @@ export default function InboxViewer({ kitaId }: InboxViewerProps) {
           <div className="lg:col-span-1 space-y-2 max-h-[60vh] overflow-y-auto">
             {threads.length === 0 ? (
               <div className="bg-blue-50 border border-blue-200 text-blue-800 p-4 rounded-lg">
-                ℹ️ Keine Nachrichten vorhanden
+                ℹ️ Keine Pinnwand vorhanden
               </div>
             ) : (
               threads.map(thread => (
