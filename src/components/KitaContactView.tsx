@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db';
+import ContactLink from '@/components/ContactLink';
 
 // Server-Komponente: zeigt Kontakt- & Notfalldaten der KiTA und ihrer Standorte.
 // Für ALLE Rollen sichtbar (Personal + Eltern). Mandantengescoped über kitaId.
@@ -29,9 +30,9 @@ export default async function KitaContactView({ kitaId }: { kitaId: string }) {
           <p className="eyebrow mb-2">Einrichtung</p>
           <h2 className="text-xl font-semibold text-secondary-900 mb-3">{kita.name}</h2>
           <div className="space-y-1.5 text-sm">
-            {kita.address && <p className="text-secondary-600">📍 {kita.address}</p>}
-            {kita.phone && <p className="text-secondary-600">📞 <a href={`tel:${kita.phone}`} className="hover:text-primary-700">{kita.phone}</a></p>}
-            {kita.email && <p className="text-secondary-600">✉️ <a href={`mailto:${kita.email}`} className="hover:text-primary-700">{kita.email}</a></p>}
+            {kita.address && <p><ContactLink kind="address" value={kita.address} /></p>}
+            {kita.phone && <p><ContactLink kind="phone" value={kita.phone} /></p>}
+            {kita.email && <p><ContactLink kind="email" value={kita.email} /></p>}
           </div>
         </div>
       )}
@@ -45,17 +46,10 @@ export default async function KitaContactView({ kitaId }: { kitaId: string }) {
             <div key={l.id} className="card p-6">
               <h3 className="text-lg font-semibold text-secondary-900 mb-3 flex items-center gap-2">📍 {l.name}</h3>
               <div className="space-y-1.5 text-sm">
-                {l.address && <p className="text-secondary-600">📍 {l.address}</p>}
-                {l.phone && <p className="text-secondary-600">📞 <a href={`tel:${l.phone}`} className="hover:text-primary-700">{l.phone}</a></p>}
-                {l.email && <p className="text-secondary-600 break-all">✉️ <a href={`mailto:${l.email}`} className="hover:text-primary-700">{l.email}</a></p>}
-                {l.emergencyPhone && (
-                  <p className="mt-2">
-                    <a href={`tel:${l.emergencyPhone}`}
-                      className="inline-flex items-center gap-1.5 bg-red-50 text-red-700 font-semibold rounded-xl px-3 py-1.5 hover:bg-red-100 transition">
-                      🚨 Notfall: {l.emergencyPhone}
-                    </a>
-                  </p>
-                )}
+                {l.address && <p><ContactLink kind="address" value={l.address} /></p>}
+                {l.phone && <p><ContactLink kind="phone" value={l.phone} /></p>}
+                {l.email && <p><ContactLink kind="email" value={l.email} /></p>}
+                {l.emergencyPhone && <p className="mt-2"><ContactLink kind="emergency" value={l.emergencyPhone} /></p>}
                 {!l.address && !l.phone && !l.email && !l.emergencyPhone && (
                   <p className="text-secondary-400">Keine Kontaktdaten hinterlegt</p>
                 )}

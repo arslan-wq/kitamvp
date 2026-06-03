@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import ContactLink from '@/components/ContactLink';
 
 interface Location {
   id: string;
@@ -407,13 +408,13 @@ export default function LocationsPage() {
                   </div>
                 )}
 
-                {/* Kontaktangaben */}
+                {/* Kontaktangaben — klickbar (T12) */}
                 {(location.address || location.phone || location.email || location.emergencyPhone) && (
                   <div className="mb-3 text-sm space-y-1">
-                    {location.address && <p className="text-secondary-600">📍 {location.address}</p>}
-                    {location.phone && <p className="text-secondary-600">📞 {location.phone}</p>}
-                    {location.email && <p className="text-secondary-600 truncate">✉️ {location.email}</p>}
-                    {location.emergencyPhone && <p className="text-red-600 font-medium">🚨 Notfall: {location.emergencyPhone}</p>}
+                    {location.address && <p><ContactLink kind="address" value={location.address} /></p>}
+                    {location.phone && <p><ContactLink kind="phone" value={location.phone} /></p>}
+                    {location.email && <p className="truncate"><ContactLink kind="email" value={location.email} /></p>}
+                    {location.emergencyPhone && <p><ContactLink kind="emergency" value={location.emergencyPhone} /></p>}
                   </div>
                 )}
 

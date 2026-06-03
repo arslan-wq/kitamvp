@@ -7,13 +7,15 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function GET(_request: NextRequest) {
   const session = await getServerSession(authOptions);
   const userId = (session?.user as any)?.id;
-  const kitaId = (session?.user as any)?.kitaId;
-  if (!userId || !kitaId) {
+  if (!userId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  // recipientId ist eindeutig pro Nutzer → sicheres Scoping auch für Eltern
+  // (deren Session keine kitaId trägt). kitaId zusätzlich, falls vorhanden.
+  const kitaId = (session?.user as any)?.kitaId;
   const notifications = await prisma.notification.findMany({
-    where: { kitaId, recipientId: userId },
+    where: { recipientId: userId, ...(kitaId ? { kitaId } : {}) },
     orderBy: { createdAt: 'desc' },
     take: 50,
   });
@@ -36,8 +38,7 @@ export async function GET(_request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   const session = await getServerSession(authOptions);
   const userId = (session?.user as any)?.id;
-  const kitaId = (session?.user as any)?.kitaId;
-  if (!userId || !kitaId) {
+  if (!userId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -46,13 +47,13 @@ export async function PATCH(request: NextRequest) {
 
   if (body.all) {
     await prisma.notification.updateMany({
-      where: { kitaId, recipientId: userId, readAt: null },
+      where: { recipientId: userId, readAt: null },
       data: { readAt: now },
     });
   } else if (body.id) {
-    // Nur eigene Benachrichtigungen markieren (mandanten- & nutzergescoped)
+    // Nur eigene Benachrichtigungen markieren (nutzergescoped via recipientId)
     await prisma.notification.updateMany({
-      where: { id: body.id, kitaId, recipientId: userId },
+      where: { id: body.id, recipientId: userId },
       data: { readAt: now },
     });
   } else {

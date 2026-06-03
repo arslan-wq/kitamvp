@@ -2,6 +2,11 @@ import { getServerSession } from 'next-auth/next';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { updateBookingStatusSchema } from '@/lib/validation';
+import { sendBookingDecisionEmail } from '@/lib/email';
+import { createNotifications } from '@/lib/notify';
+
+const WD = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+const fmtDate = (d: Date | string) => new Date(d).toLocaleDateString('de-CH');
 
 // PATCH /api/bookings/[id] — Personal (Admin/Leiter/Betreuer) nimmt an oder lehnt ab
 export async function PATCH(
@@ -32,8 +37,40 @@ export async function PATCH(
         reviewedBy: user.id,
         reviewedAt: new Date(),
       },
-      include: { child: { select: { firstName: true, lastName: true } } },
+      include: {
+        child: {
+          select: {
+            firstName: true, lastName: true,
+            parents: { select: { id: true, email: true, firstName: true } },
+          },
+        },
+      },
     });
+
+    // T4: Eltern bei Entscheidung benachrichtigen (E-Mail + Glocke)
+    if (status === 'APPROVED' || status === 'REJECTED') {
+      const childName = `${updated.child.firstName} ${updated.child.lastName}`;
+      const days = (updated.weekdays || []).map((w: number) => WD[w]).join(', ');
+      const periodLabel = `${fmtDate(updated.startDate)} – ${fmtDate(updated.endDate)}${days ? ` · ${days}` : ''}`;
+      const approved = status === 'APPROVED';
+      try {
+        await Promise.allSettled(
+          updated.child.parents.map((p) =>
+            sendBookingDecisionEmail(p.email, { parentName: p.firstName, childName, periodLabel, approved })
+          )
+        );
+      } catch (e) {
+        console.error('[booking] Eltern-Entscheidungs-Mail fehlgeschlagen:', e);
+      }
+      await createNotifications({
+        kitaId: updated.kitaId,
+        recipientIds: updated.child.parents.map((p) => p.id),
+        type: 'BOOKING_DECISION',
+        title: approved ? `Betreuung bestätigt: ${childName}` : `Anfrage abgelehnt: ${childName}`,
+        message: periodLabel,
+        link: '/bookings',
+      });
+    }
 
     return NextResponse.json(updated);
   } catch (error: any) {

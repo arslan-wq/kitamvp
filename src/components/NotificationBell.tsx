@@ -15,7 +15,8 @@ interface Notif {
 
 const ICONS: Record<string, string> = {
   NEW_ACTIVITY: '📊', NEW_REPORT: '📋', NEW_MESSAGE: '💬', REPLY: '💬',
-  ANNOUNCEMENT: '📣', BOOKING_REQUEST: '📅', STAFF_ASSIGNMENT: '📍',
+  ANNOUNCEMENT: '📣', BOOKING_REQUEST: '📅', BOOKING_DECISION: '✅',
+  CANCELLATION_REQUEST: '🚫', STAFF_ASSIGNMENT: '📍',
 };
 
 function timeAgo(iso: string): string {
