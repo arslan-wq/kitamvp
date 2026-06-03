@@ -64,12 +64,18 @@ export default function DashboardLayout({
       {/* Header Navigation */}
       <header className="bg-white/80 glass border-b border-gray-100 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            {/* Logo & Brand */}
-            <Link href="/dashboard" className="flex items-center hover:opacity-80 transition shrink-0">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/brand/kitaluna-wordmark.svg" alt="KitaLuna" className="h-8 sm:h-9 w-auto" />
-            </Link>
+          <div className="flex justify-between items-center h-16 gap-2">
+            {/* Links: auf Mobile Profil + Glocke ganz links, dann Logo */}
+            <div className="flex items-center gap-1.5 min-w-0">
+              <div className="flex items-center gap-1 lg:hidden shrink-0">
+                <HeaderProfile href="/dashboard/profil" fallback={(session.user?.name || session.user?.email || '?').charAt(0).toUpperCase()} />
+                <NotificationBell />
+              </div>
+              <Link href="/dashboard" className="flex items-center hover:opacity-80 transition shrink-0">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/brand/kitaluna-wordmark.svg" alt="KitaLuna" className="h-7 sm:h-9 w-auto" />
+              </Link>
+            </div>
 
             {/* Desktop Navigation */}
             <nav className="hidden lg:flex items-center gap-0.5">
@@ -100,41 +106,47 @@ export default function DashboardLayout({
               </div>
             </nav>
 
-            {/* Mobile Menu Button */}
-            <div className="flex items-center gap-2 sm:gap-3">
-              <NotificationBell />
-              <HeaderProfile href="/dashboard/profil" fallback={(session.user?.name || session.user?.email || '?').charAt(0).toUpperCase()} />
-              <span className="chip chip-neutral max-w-[10rem] hidden sm:inline-flex">
-                <span className="truncate-1">{session.user?.email}</span>
-              </span>
+            {/* Rechts: Desktop Glocke+Profil+Abmelden, Mobile Burger */}
+            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+              <div className="hidden lg:flex items-center gap-3">
+                <NotificationBell />
+                <HeaderProfile href="/dashboard/profil" fallback={(session.user?.name || session.user?.email || '?').charAt(0).toUpperCase()} />
+                <span className="chip chip-neutral max-w-[10rem]">
+                  <span className="truncate-1">{session.user?.email}</span>
+                </span>
+                <button onClick={() => signOut({ callbackUrl: '/' })} className="btn btn-secondary btn-sm">Abmelden</button>
+              </div>
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="btn-icon lg:hidden text-secondary-600 hover:bg-gray-100"
+                className="btn-icon lg:hidden text-secondary-600 hover:bg-secondary-100"
+                aria-label="Menü"
               >
                 ☰
-              </button>
-              <button
-                onClick={() => signOut({ callbackUrl: '/' })}
-                className="btn btn-secondary btn-sm"
-              >
-                Abmelden
               </button>
             </div>
           </div>
 
           {/* Mobile Navigation */}
           {mobileMenuOpen && (
-            <div className="lg:hidden pb-4 pt-2 border-t border-gray-100 grid grid-cols-1 sm:grid-cols-2 gap-1">
-              {navItems.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="block px-3 py-2.5 text-sm font-medium text-secondary-600 hover:text-primary-700 hover:bg-primary-50 rounded-lg transition-smooth"
-                >
-                  {item.label}
-                </Link>
-              ))}
+            <div className="lg:hidden pb-4 pt-2 border-t border-gray-100">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
+                {navItems.map((item) => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="block px-3 py-2.5 text-sm font-medium text-secondary-600 hover:text-primary-700 hover:bg-primary-50 rounded-lg transition-smooth"
+                  >
+                    {item.label}
+                  </Link>
+                ))}
+              </div>
+              <button
+                onClick={() => { setMobileMenuOpen(false); signOut({ callbackUrl: '/' }); }}
+                className="btn btn-secondary btn-block mt-3"
+              >
+                Abmelden
+              </button>
             </div>
           )}
         </div>

@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import NotificationBell from '@/components/NotificationBell';
 import HeaderProfile from '@/components/HeaderProfile';
+import ParentMobileMenu from './components/ParentMobileMenu';
 
 export default async function ParentLayout({
   children,
@@ -30,12 +31,18 @@ export default async function ParentLayout({
     <div className="min-h-screen bg-background">
       <header className="bg-white/80 glass border-b border-gray-100 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            {/* Logo & Brand */}
-            <Link href="/children" className="flex items-center hover:opacity-80 transition shrink-0">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/brand/kitaluna-wordmark.svg" alt="KitaLuna" className="h-8 sm:h-9 w-auto" />
-            </Link>
+          <div className="flex justify-between items-center h-16 gap-2">
+            {/* Links: auf Mobile Profil + Glocke ganz links, dann Logo */}
+            <div className="flex items-center gap-1.5 min-w-0">
+              <div className="flex items-center gap-1 lg:hidden shrink-0">
+                <HeaderProfile href="/profil" fallback={(session.user?.name || '?').charAt(0).toUpperCase()} />
+                <NotificationBell />
+              </div>
+              <Link href="/children" className="flex items-center hover:opacity-80 transition shrink-0">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/brand/kitaluna-wordmark.svg" alt="KitaLuna" className="h-7 sm:h-9 w-auto" />
+              </Link>
+            </div>
 
             {/* Desktop Navigation */}
             <nav className="hidden lg:flex items-center gap-0.5">
@@ -50,29 +57,19 @@ export default async function ParentLayout({
               ))}
             </nav>
 
-            {/* Right */}
-            <div className="flex items-center gap-2 sm:gap-3">
-              <NotificationBell />
-              <HeaderProfile href="/profil" fallback={(session.user?.name || '?').charAt(0).toUpperCase()} />
-              <span className="chip chip-neutral max-w-[10rem] hidden sm:inline-flex">
-                <span className="truncate-1">{session.user?.name}</span>
-              </span>
-              <a href="/api/auth/signout" className="btn btn-secondary btn-sm">Abmelden</a>
+            {/* Rechts: Desktop Glocke+Profil+Abmelden, Mobile Burger */}
+            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+              <div className="hidden lg:flex items-center gap-3">
+                <NotificationBell />
+                <HeaderProfile href="/profil" fallback={(session.user?.name || '?').charAt(0).toUpperCase()} />
+                <span className="chip chip-neutral max-w-[10rem]">
+                  <span className="truncate-1">{session.user?.name}</span>
+                </span>
+                <a href="/api/auth/signout" className="btn btn-secondary btn-sm">Abmelden</a>
+              </div>
+              <ParentMobileMenu navItems={navItems} />
             </div>
           </div>
-
-          {/* Mobile Navigation */}
-          <nav className="lg:hidden pb-3 pt-1 flex flex-wrap gap-1">
-            {navItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="px-3 py-1.5 text-sm font-medium text-secondary-600 hover:text-primary-700 hover:bg-primary-50 rounded-lg transition-smooth"
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
         </div>
       </header>
 
