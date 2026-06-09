@@ -59,20 +59,56 @@ export default function ActivitiesBoard({ childrenList, locations }: { childrenL
   };
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [from, to]);
 
-  const openModal = () => { setEditingId(null); setForm({ childId: childrenList[0]?.id || '', type: 'ACTIVITY', datetime: nowLocal(), details: '', notes: '' }); setOpen(true); };
+  // T6: Standort zuerst, dann mehrere Kinder
+  const openModal = () => {
+    setEditingId(null);
+    setForm({ locationId: locations[0]?.id || '__none__', childIds: [], search: '', type: 'ACTIVITY', datetime: nowLocal(), details: '', notes: '' });
+    setOpen(true);
+  };
+
+  // Kinder des im Modal gewählten Standorts, gefiltert nach Suche
+  const modalChildren = useMemo(() => {
+    if (!form) return [] as ChildLite[];
+    const q = (form.search || '').trim().toLowerCase();
+    return childrenList
+      .filter(c => (c.locationId || '__none__') === form.locationId)
+      .filter(c => !q || `${c.firstName} ${c.lastName}`.toLowerCase().includes(q));
+  }, [form, childrenList]);
+
+  const toggleChild = (id: string) =>
+    setForm((f: any) => ({ ...f, childIds: f.childIds.includes(id) ? f.childIds.filter((x: string) => x !== id) : [...f.childIds, id] }));
+  const allVisibleSelected = modalChildren.length > 0 && modalChildren.every(c => form?.childIds?.includes(c.id));
+  const toggleAllVisible = () =>
+    setForm((f: any) => {
+      const ids = modalChildren.map(c => c.id);
+      const allSel = ids.every(id => f.childIds.includes(id));
+      return { ...f, childIds: allSel ? f.childIds.filter((id: string) => !ids.includes(id)) : Array.from(new Set([...f.childIds, ...ids])) };
+    });
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.childId) { setError('Bitte ein Kind wählen.'); return; }
     setSaving(true); setError('');
     try {
-      const payload = { childId: form.childId, type: form.type, timestamp: new Date(form.datetime).toISOString(), details: form.details || undefined, notes: form.notes || undefined };
-      const res = await fetch(editingId ? `/api/activities/${editingId}` : '/api/activities', {
-        method: editingId ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      if (res.ok) { setOpen(false); setEditingId(null); await load(); }
-      else { const d = await res.json().catch(() => ({})); setError(d.error || 'Speichern fehlgeschlagen'); }
+      const ts = new Date(form.datetime).toISOString();
+      if (editingId) {
+        const res = await fetch(`/api/activities/${editingId}`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ childId: form.childId, type: form.type, timestamp: ts, details: form.details || undefined, notes: form.notes || undefined }),
+        });
+        if (res.ok) { setOpen(false); setEditingId(null); await load(); }
+        else { const d = await res.json().catch(() => ({})); setError(d.error || 'Speichern fehlgeschlagen'); }
+        return;
+      }
+      const ids: string[] = form.childIds || [];
+      if (ids.length === 0) { setError('Bitte mindestens ein Kind wählen.'); setSaving(false); return; }
+      const results = await Promise.all(ids.map(cid =>
+        fetch('/api/activities', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ childId: cid, type: form.type, timestamp: ts, details: form.details || undefined, notes: form.notes || undefined }),
+        })
+      ));
+      if (results.every(r => r.ok)) { setOpen(false); await load(); }
+      else { setError('Einige Aktivitäten konnten nicht gespeichert werden'); await load(); }
     } finally { setSaving(false); }
   };
 
@@ -82,19 +118,38 @@ export default function ActivitiesBoard({ childrenList, locations }: { childrenL
     return true;
   }), [activities, childFilter, typeFilter]);
 
-  // Kanban-Spalten nach Standort
+  // T4: Kanban zeigt nur den AKTUELLEN Tag (Datumsfilter gilt nur in der Zeitachse)
+  const isToday = (ts: string) => new Date(ts).toDateString() === new Date().toDateString();
+  const kanbanItems = useMemo(() => filtered.filter(a => isToday(a.timestamp)), [filtered]);
+
+  // T3: Statistik je Typ — wie viele verschiedene Kinder hatten Typ X von insgesamt Y
+  // (Y = Kinder im jeweiligen Standort/Scope). Liefert [{type, icon, count, total}].
+  const typeStats = (items: any[], totalChildren: number) => {
+    const byType = new Map<string, Set<string>>();
+    for (const a of items) {
+      if (!byType.has(a.type)) byType.set(a.type, new Set());
+      byType.get(a.type)!.add(a.childId);
+    }
+    return TYPES
+      .filter(t => byType.has(t.id) && (typeFilter === 'all' || typeFilter === t.id))
+      .map(t => ({ type: t.id, icon: t.icon, name: t.name, count: byType.get(t.id)!.size, total: totalChildren }));
+  };
+  const childrenInLocation = (locId: string) =>
+    childrenList.filter(c => (c.locationId || '__none__') === locId).length;
+
+  // Kanban-Spalten nach Standort (nur heutige Aktivitäten)
   const columns = useMemo(() => {
     const cols: { id: string; name: string; items: any[] }[] = [
       ...locations.map(l => ({ id: l.id, name: l.name, items: [] as any[] })),
       { id: '__none__', name: 'Ohne Standort', items: [] as any[] },
     ];
     const map = new Map(cols.map(c => [c.id, c]));
-    for (const a of filtered) {
+    for (const a of kanbanItems) {
       const key = a.child?.locationId || '__none__';
       (map.get(key) || map.get('__none__'))!.items.push(a);
     }
     return cols.filter(c => c.items.length > 0 || c.id !== '__none__');
-  }, [filtered, locations]);
+  }, [kanbanItems, locations]);
 
   // Zeitachse nach Tag
   const groups = useMemo(() => {
@@ -161,32 +216,64 @@ export default function ActivitiesBoard({ childrenList, locations }: { childrenL
             <option value="all">Alle Typen</option>
             {TYPES.map(t => <option key={t.id} value={t.id}>{t.icon} {t.name}</option>)}
           </select>
-          <input type="date" className="input max-w-[9.5rem]" value={from} onChange={e => setFrom(e.target.value)} title="Von" />
-          <input type="date" className="input max-w-[9.5rem]" value={to} onChange={e => setTo(e.target.value)} title="Bis" />
+          {/* T5: Zeitfilter Von–Bis nur in der Zeitachse, nebeneinander auf einer Linie */}
+          {view === 'timeline' && (
+            <div className="flex items-center gap-1.5">
+              <input type="date" className="input w-[8.5rem]" value={from} onChange={e => setFrom(e.target.value)} title="Von" />
+              <span className="text-secondary-400 text-sm">–</span>
+              <input type="date" className="input w-[8.5rem]" value={to} onChange={e => setTo(e.target.value)} title="Bis" />
+            </div>
+          )}
         </div>
         <button onClick={openModal} className="btn btn-primary">+ Aktivität anlegen</button>
       </div>
 
       {error && <div className="alert alert-error">{error}</div>}
 
-      {filtered.length === 0 ? (
-        <div className="empty-state"><div className="empty-state-icon">📊</div><p className="text-secondary-500">Keine Aktivitäten</p></div>
+      {(view === 'kanban' ? kanbanItems.length === 0 : filtered.length === 0) ? (
+        <div className="empty-state"><div className="empty-state-icon">📊</div><p className="text-secondary-500">{view === 'kanban' ? 'Heute noch keine Aktivitäten' : 'Keine Aktivitäten im Zeitraum'}</p></div>
       ) : view === 'kanban' ? (
         <div className="flex gap-4 overflow-x-auto pb-2">
-          {columns.map(col => (
+          {columns.map(col => {
+            const stats = typeStats(col.items, childrenInLocation(col.id));
+            return (
             <div key={col.id} className="w-72 shrink-0">
               <div className="flex items-center justify-between mb-2 px-1">
                 <p className="font-semibold text-secondary-900 text-sm">📍 {col.name}</p>
-                <span className="chip chip-neutral">{col.items.length}</span>
+                <span className="chip chip-neutral">{childrenInLocation(col.id)} Kinder</span>
               </div>
+              {/* T3: X/Y je Typ — wie viele Kinder z.B. gewickelt/gegessen */}
+              {stats.length > 0 && (
+                <div className="flex flex-wrap gap-1 mb-2 px-1">
+                  {stats.map(s => (
+                    <span key={s.type} className="chip chip-accent text-[11px]" title={`${s.count} von ${s.total} Kindern: ${s.name}`}>
+                      {s.icon} {s.count}/{s.total}
+                    </span>
+                  ))}
+                </div>
+              )}
               <div className="space-y-2 bg-secondary-100/50 rounded-2xl p-2 min-h-[6rem]">
                 {col.items.length === 0 ? <p className="text-xs text-secondary-400 text-center py-4">—</p> : col.items.map(a => <Card key={a.id} a={a} />)}
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       ) : (
         <div className="space-y-6">
+          {/* T3: Statistik-Leiste über der Zeitachse */}
+          {(() => {
+            const total = childFilter === 'all' ? childrenList.length : 1;
+            const stats = typeStats(filtered, total);
+            return stats.length > 0 ? (
+              <div className="card p-3 flex flex-wrap gap-1.5">
+                <span className="text-xs font-semibold text-secondary-500 mr-1 self-center">Im Zeitraum:</span>
+                {stats.map(s => (
+                  <span key={s.type} className="chip chip-accent" title={`${s.count} von ${s.total} Kindern: ${s.name}`}>{s.icon} {s.name} {s.count}/{s.total}</span>
+                ))}
+              </div>
+            ) : null;
+          })()}
           {groups.map(([day, items]) => (
             <div key={day}>
               <p className="eyebrow mb-3">{day}</p>
@@ -226,14 +313,51 @@ export default function ActivitiesBoard({ childrenList, locations }: { childrenL
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setOpen(false)}>
           <form onClick={e => e.stopPropagation()} onSubmit={save} className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 space-y-4 shadow-elevated">
             <h2 className="text-xl font-bold text-secondary-900">{editingId ? 'Aktivität bearbeiten' : 'Neue Aktivität'}</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div><label className="label label-required">Kind</label>
-                <select className="input" value={form.childId} onChange={e => setForm({ ...form, childId: e.target.value })} required>
-                  {childrenList.map(c => <option key={c.id} value={c.id}>{c.firstName} {c.lastName}</option>)}
-                </select>
+
+            {editingId ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div><label className="label label-required">Kind</label>
+                  <select className="input" value={form.childId} onChange={e => setForm({ ...form, childId: e.target.value })} required>
+                    {childrenList.map(c => <option key={c.id} value={c.id}>{c.firstName} {c.lastName}</option>)}
+                  </select>
+                </div>
+                <div><label className="label label-required">Datum & Zeit</label><input type="datetime-local" className="input" value={form.datetime} onChange={e => setForm({ ...form, datetime: e.target.value })} required /></div>
               </div>
-              <div><label className="label label-required">Datum & Zeit</label><input type="datetime-local" className="input" value={form.datetime} onChange={e => setForm({ ...form, datetime: e.target.value })} required /></div>
-            </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div><label className="label label-required">📍 Standort</label>
+                    <select className="input" value={form.locationId} onChange={e => setForm({ ...form, locationId: e.target.value, childIds: [] })}>
+                      {locations.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                      <option value="__none__">Ohne Standort</option>
+                    </select>
+                  </div>
+                  <div><label className="label label-required">Datum & Zeit</label><input type="datetime-local" className="input" value={form.datetime} onChange={e => setForm({ ...form, datetime: e.target.value })} required /></div>
+                </div>
+                {/* T6: Kinder des Standorts — Mehrfachauswahl, Suche, „Alle" */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="label label-required mb-0">Kinder ({form.childIds.length} gewählt)</label>
+                    {modalChildren.length > 0 && (
+                      <button type="button" onClick={toggleAllVisible} className="text-xs font-medium text-primary-600 hover:text-primary-700">
+                        {allVisibleSelected ? 'Alle abwählen' : 'Alle auswählen'}
+                      </button>
+                    )}
+                  </div>
+                  <input className="input mb-2" placeholder="🔍 Kind suchen…" value={form.search} onChange={e => setForm({ ...form, search: e.target.value })} />
+                  <div className="max-h-52 overflow-y-auto rounded-xl border border-secondary-100 divide-y divide-secondary-50">
+                    {modalChildren.length === 0 ? (
+                      <p className="text-sm text-secondary-400 text-center py-4">Keine Kinder an diesem Standort</p>
+                    ) : modalChildren.map(c => (
+                      <label key={c.id} className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-secondary-50">
+                        <input type="checkbox" checked={form.childIds.includes(c.id)} onChange={() => toggleChild(c.id)} className="w-4 h-4 accent-primary-600" />
+                        <span className="text-sm text-secondary-900">{c.firstName} {c.lastName}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
             <div><label className="label">Typ</label>
               <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                 {TYPES.map(t => (
