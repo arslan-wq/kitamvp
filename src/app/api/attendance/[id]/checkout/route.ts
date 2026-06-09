@@ -33,16 +33,25 @@ export async function POST(
     },
   });
 
+  const now = new Date();
+  // Kinder gelten standardmäßig als anwesend; „Abgang" markiert nur die Abholung.
+  // Existiert noch kein Datensatz für heute, wird er beim Abgang angelegt.
   if (!attendance) {
-    return NextResponse.json(
-      { error: 'No check-in found for today' },
-      { status: 404 }
-    );
+    const created = await prisma.attendance.create({
+      data: {
+        childId: params.id,
+        date: today,
+        checkInTime: today, // anwesend ab Tagesbeginn (kein separates Check-in mehr)
+        checkOutTime: now,
+        checkedInBy: session.user.id,
+      },
+    });
+    return NextResponse.json(created);
   }
 
   const updated = await prisma.attendance.update({
     where: { id: attendance.id },
-    data: { checkOutTime: new Date() },
+    data: { checkOutTime: now },
   });
 
   return NextResponse.json(updated);

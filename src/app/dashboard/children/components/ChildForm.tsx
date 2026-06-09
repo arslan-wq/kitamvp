@@ -39,6 +39,17 @@ export default function ChildForm({ initialData, isEditing = false, childId }: C
   const [photo, setPhoto] = useState<string | null>(initialData?.photoUrl || null);
   const photoRef = useRef<HTMLInputElement>(null);
 
+  // T2: Belegung (Betreuungstage) direkt beim Anlegen — sofort akzeptiert
+  const todayStr = new Date().toISOString().split('T')[0];
+  const plus6m = (() => { const d = new Date(); d.setMonth(d.getMonth() + 6); return d.toISOString().split('T')[0]; })();
+  const DAY_TYPES: Record<string, string> = {
+    FULL_DAY: 'Ganztags', MORNING_WITH_MEAL: 'Vormittag + Essen', MORNING_NO_MEAL: 'Vormittag',
+    AFTERNOON_WITH_MEAL: 'Nachmittag + Essen', AFTERNOON_NO_MEAL: 'Nachmittag',
+  };
+  const [booking, setBooking] = useState({ weekdays: [] as number[], dayType: 'FULL_DAY', startDate: todayStr, endDate: plus6m });
+  const toggleWeekday = (v: number) =>
+    setBooking(b => ({ ...b, weekdays: b.weekdays.includes(v) ? b.weekdays.filter(x => x !== v) : [...b.weekdays, v] }));
+
   const pickPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     e.target.value = '';
@@ -96,7 +107,24 @@ export default function ChildForm({ initialData, isEditing = false, childId }: C
         throw new Error(data.error || 'Fehler beim Speichern');
       }
 
-      await response.json();
+      const createdChild = await response.json();
+
+      // T2: Belegung anlegen (nur beim Erstellen, wenn Wochentage gewählt) — sofort akzeptiert
+      if (!isEditing && createdChild?.id && booking.weekdays.length > 0) {
+        try {
+          await fetch('/api/bookings', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              childId: createdChild.id,
+              startDate: booking.startDate,
+              endDate: booking.endDate,
+              weekdays: booking.weekdays,
+              dayType: booking.dayType,
+            }),
+          });
+        } catch { /* Belegung best-effort — Kind wurde bereits angelegt */ }
+      }
+
       setSuccess(
         isEditing
           ? `Änderungen für "${formData.firstName}" gespeichert.`
@@ -243,6 +271,38 @@ export default function ChildForm({ initialData, isEditing = false, childId }: C
                 <p className="help-text text-primary-700 mt-2">
                   Der Elternteil erhält eine Einladungs-Email mit Registrierungs-Link.
                 </p>
+              </div>
+            )}
+
+            {/* T2: Belegung (Betreuungstage) — sofort akzeptiert */}
+            {!isEditing && (
+              <div className="surface rounded-xl p-5">
+                <p className="eyebrow mb-1">📅 Belegung (optional)</p>
+                <p className="help-text mb-3">Betreuungstage direkt festlegen — wird sofort akzeptiert. Ohne Auswahl wird keine Belegung angelegt.</p>
+                <div className="mb-4">
+                  <label className="label">Wochentage</label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[{ v: 1, l: 'Mo' }, { v: 2, l: 'Di' }, { v: 3, l: 'Mi' }, { v: 4, l: 'Do' }, { v: 5, l: 'Fr' }].map(d => {
+                      const active = booking.weekdays.includes(d.v);
+                      return (
+                        <button key={d.v} type="button" onClick={() => toggleWeekday(d.v)}
+                          className={`w-11 h-11 rounded-lg border text-sm font-semibold transition-all ${active ? 'border-primary-600 bg-primary-50 text-primary-700 ring-2 ring-primary-200' : 'border-gray-200 bg-white text-secondary-500 hover:border-primary-300'}`}>
+                          {d.l}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="label">Betreuungsart</label>
+                    <select className="input" value={booking.dayType} onChange={e => setBooking(b => ({ ...b, dayType: e.target.value }))}>
+                      {Object.entries(DAY_TYPES).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                    </select>
+                  </div>
+                  <div><label className="label">Von</label><input type="date" className="input" value={booking.startDate} onChange={e => setBooking(b => ({ ...b, startDate: e.target.value }))} /></div>
+                  <div><label className="label">Bis</label><input type="date" className="input" value={booking.endDate} onChange={e => setBooking(b => ({ ...b, endDate: e.target.value }))} /></div>
+                </div>
               </div>
             )}
           </div>

@@ -34,21 +34,9 @@ export default function ScheduleView() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [attendance, setAttendance] = useState<any[]>([]);
-  const [children, setChildren] = useState<{ id: string; firstName: string; lastName: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-
-  // Schnell-Buchung durch Personal
-  const [showAdd, setShowAdd] = useState(false);
-  const [addSubmitting, setAddSubmitting] = useState(false);
-  const [addForm, setAddForm] = useState({
-    childId: '',
-    startDate: '',
-    endDate: '',
-    weekdays: [] as number[],
-    dayType: 'FULL_DAY',
-  });
 
   const fetchBookings = useCallback(async () => {
     const res = await fetch('/api/bookings');
@@ -63,14 +51,12 @@ export default function ScheduleView() {
   useEffect(() => {
     (async () => {
       try {
-        const [, , locRes, childRes] = await Promise.all([
+        const [, , locRes] = await Promise.all([
           fetchBookings(),
           fetchAttendance(date),
           fetch('/api/locations'),
-          fetch('/api/children'),
         ]);
         if (locRes.ok) setLocations(await locRes.json());
-        if (childRes.ok) setChildren(await childRes.json());
       } catch {
         setError('Daten konnten nicht geladen werden');
       } finally {
@@ -122,50 +108,6 @@ export default function ScheduleView() {
       else setError('Aktion fehlgeschlagen');
     } finally {
       setActionLoading(null);
-    }
-  };
-
-  // Formular öffnen, vorbelegt mit dem aktuell gewählten Tag
-  const openAdd = () => {
-    const [y, m, d] = date.split('-').map(Number);
-    setAddForm({
-      childId: children[0]?.id || '',
-      startDate: date,
-      endDate: date,
-      weekdays: [new Date(y, m - 1, d).getDay()],
-      dayType: 'FULL_DAY',
-    });
-    setShowAdd(true);
-  };
-
-  const toggleAddWeekday = (v: number) =>
-    setAddForm(f => ({
-      ...f,
-      weekdays: f.weekdays.includes(v) ? f.weekdays.filter(d => d !== v) : [...f.weekdays, v],
-    }));
-
-  const createBooking = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    if (!addForm.childId || !addForm.startDate || !addForm.endDate || addForm.weekdays.length === 0) {
-      setError('Bitte Kind, Zeitraum und mindestens einen Wochentag wählen.');
-      return;
-    }
-    setAddSubmitting(true);
-    try {
-      const res = await fetch('/api/bookings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(addForm),
-      });
-      if (res.ok) {
-        await fetchBookings();
-        setShowAdd(false);
-      } else {
-        setError('Buchung konnte nicht erstellt werden.');
-      }
-    } finally {
-      setAddSubmitting(false);
     }
   };
 
@@ -228,80 +170,15 @@ export default function ScheduleView() {
         <div className="flex items-center gap-2">
           <label className="text-sm text-secondary-500 whitespace-nowrap">Tag:</label>
           <input type="date" value={date} onChange={e => setDate(e.target.value)} className="input max-w-[180px]" />
-          {!showAdd && (
-            <button onClick={openAdd} className="btn btn-primary whitespace-nowrap" disabled={children.length === 0}>
-              + Kind hinzufügen
-            </button>
-          )}
         </div>
       </div>
 
       {error && <div className="alert alert-error">{error}</div>}
 
-      {/* Schnell-Buchung durch Personal (sofort akzeptiert) */}
-      {showAdd && (
-        <form onSubmit={createBooking} className="card p-6">
-          <div className="flex items-center justify-between mb-4">
-            <p className="eyebrow">Kind zur Belegung hinzufügen — sofort akzeptiert</p>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-            <div>
-              <label className="label label-required">👶 Kind</label>
-              <select className="input" value={addForm.childId}
-                onChange={e => setAddForm(f => ({ ...f, childId: e.target.value }))} required>
-                <option value="">— wählen —</option>
-                {children.map(c => <option key={c.id} value={c.id}>{c.firstName} {c.lastName}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="label label-required">Von</label>
-              <input type="date" className="input" value={addForm.startDate}
-                onChange={e => setAddForm(f => ({ ...f, startDate: e.target.value }))} required />
-            </div>
-            <div>
-              <label className="label label-required">Bis</label>
-              <input type="date" className="input" value={addForm.endDate}
-                onChange={e => setAddForm(f => ({ ...f, endDate: e.target.value }))} required />
-            </div>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-            <div>
-              <label className="label">Wochentage</label>
-              <div className="flex flex-wrap gap-1.5">
-                {[{ v: 1, l: 'Mo' }, { v: 2, l: 'Di' }, { v: 3, l: 'Mi' }, { v: 4, l: 'Do' }, { v: 5, l: 'Fr' }, { v: 6, l: 'Sa' }, { v: 0, l: 'So' }].map(d => {
-                  const active = addForm.weekdays.includes(d.v);
-                  return (
-                    <button key={d.v} type="button" onClick={() => toggleAddWeekday(d.v)}
-                      className={`w-10 h-10 rounded-lg border text-sm font-semibold transition-all ${
-                        active ? 'border-primary-600 bg-primary-50 text-primary-700 ring-2 ring-primary-200'
-                               : 'border-gray-200 bg-white text-secondary-500 hover:border-primary-300'}`}>
-                      {d.l}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-            <div>
-              <label className="label">Betreuungsart</label>
-              <select className="input" value={addForm.dayType}
-                onChange={e => setAddForm(f => ({ ...f, dayType: e.target.value }))}>
-                {Object.entries(DAY_TYPE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-              </select>
-            </div>
-          </div>
-          <div className="flex justify-end gap-3">
-            <button type="button" onClick={() => setShowAdd(false)} className="btn btn-secondary">Abbrechen</button>
-            <button type="submit" disabled={addSubmitting} className="btn btn-primary px-6">
-              {addSubmitting ? 'Wird erstellt…' : '✓ Hinzufügen'}
-            </button>
-          </div>
-        </form>
-      )}
-
       {/* Übersicht */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="stat-card"><p className="stat-value text-secondary-900">{expected.length}</p><p className="stat-label">Erwartet am {WEEKDAYS[dow]}.</p></div>
-        <div className="stat-card"><p className="stat-value text-primary-600">{attendance.filter(a => a.checkInTime && !a.checkOutTime).length}</p><p className="stat-label">✅ Anwesend</p></div>
+        <div className="stat-card"><p className="stat-value text-primary-600">{Math.max(0, expected.length - attendance.filter(a => a.checkOutTime).length)}</p><p className="stat-label">✅ Anwesend</p></div>
         <div className="stat-card"><p className="stat-value text-success">{attendance.filter(a => a.checkOutTime).length}</p><p className="stat-label">🚪 Abgeholt</p></div>
         <div className="stat-card"><p className="stat-value text-warning">{pending.length}</p><p className="stat-label">⏳ Offene Anfragen</p></div>
       </div>
@@ -344,16 +221,13 @@ export default function ScheduleView() {
             const name = key === '__none__' ? 'Ohne Standort' : locName(key);
             const cap = key === '__none__' ? null : locations.find(l => l.id === key)?.capacity;
 
-            // Anwesend = eingecheckt und noch nicht abgeholt. Abwesend = noch nicht da ODER schon abgeholt.
-            const present = items.filter(b => {
-              const att = attByChild(b.childId);
-              return att?.checkInTime && !att?.checkOutTime;
-            });
-            const absent = items.filter(b => !present.includes(b));
+            // Kinder gelten standardmäßig als anwesend. „Abgang" markiert die Abholung.
+            // Anwesend = noch nicht abgeholt. Abgeholt = checkOutTime gesetzt.
+            const present = items.filter(b => !attByChild(b.childId)?.checkOutTime);
+            const absent = items.filter(b => attByChild(b.childId)?.checkOutTime);
 
             const renderCard = (b: Booking) => {
               const att = attByChild(b.childId);
-              const checkedIn = att?.checkInTime && !att?.checkOutTime;
               const checkedOut = att?.checkOutTime;
               return (
                 <div key={b.childId} className="bg-white rounded-2xl border border-secondary-100 p-4 flex flex-col gap-3">
@@ -372,29 +246,17 @@ export default function ScheduleView() {
                   </div>
                   <div className="flex items-center justify-between text-sm gap-2">
                     <span className="text-secondary-500 min-w-0 truncate">
-                      {att?.checkInTime ? `Ankunft ${fmtTime(att.checkInTime)}` : 'Noch nicht angekommen'}
-                      {checkedOut ? ` · Abgang ${fmtTime(att.checkOutTime)}` : ''}
+                      {checkedOut ? `Abgang ${fmtTime(att!.checkOutTime)}` : 'Anwesend'}
                     </span>
                     <div className="flex gap-1.5 shrink-0">
-                      {!att?.checkInTime && (
-                        <button onClick={() => attendanceAction(b.childId, 'checkin')}
-                          disabled={actionLoading === b.childId + 'checkin'}
-                          className="btn btn-primary btn-sm">✅ Ankunft</button>
-                      )}
-                      {checkedIn && (
-                        <>
-                          <button onClick={() => undoAttendance(b.childId, 'checkin')}
-                            disabled={actionLoading === b.childId + 'undocheckin'}
-                            title="Ankunft rückgängig" className="btn btn-secondary btn-sm">↩</button>
-                          <button onClick={() => attendanceAction(b.childId, 'checkout')}
-                            disabled={actionLoading === b.childId + 'checkout'}
-                            className="btn btn-secondary btn-sm">🚪 Abgang</button>
-                        </>
-                      )}
-                      {checkedOut && (
+                      {!checkedOut ? (
+                        <button onClick={() => attendanceAction(b.childId, 'checkout')}
+                          disabled={actionLoading === b.childId + 'checkout'}
+                          className="btn btn-primary btn-sm">🚪 Abgang</button>
+                      ) : (
                         <button onClick={() => undoAttendance(b.childId, 'checkout')}
                           disabled={actionLoading === b.childId + 'undocheckout'}
-                          title="Abholung rückgängig" className="btn btn-secondary btn-sm">↩ Abgang</button>
+                          title="Abholung rückgängig" className="btn btn-secondary btn-sm">↩ Abgang rückgängig</button>
                       )}
                     </div>
                   </div>
@@ -421,7 +283,7 @@ export default function ScheduleView() {
                     <span className="chip chip-success">{present.length}</span>
                   </div>
                   {present.length === 0 ? (
-                    <p className="text-sm text-secondary-400 text-center py-3">Noch niemand angekommen</p>
+                    <p className="text-sm text-secondary-400 text-center py-3">Alle Kinder wurden abgeholt 👋</p>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                       {present.map(renderCard)}
@@ -429,15 +291,15 @@ export default function ScheduleView() {
                   )}
                 </div>
 
-                {/* Zone: Abwesend (unten) */}
+                {/* Zone: Abgeholt (unten) */}
                 <div className="rounded-2xl bg-secondary-50 border border-secondary-100 p-3">
                   <div className="flex items-center gap-2 mb-3 px-1">
                     <span className="w-2.5 h-2.5 rounded-full bg-secondary-300" />
-                    <p className="font-semibold text-secondary-600 text-sm">🏠 Abwesend</p>
+                    <p className="font-semibold text-secondary-600 text-sm">👋 Abgeholt</p>
                     <span className="chip chip-neutral">{absent.length}</span>
                   </div>
                   {absent.length === 0 ? (
-                    <p className="text-sm text-secondary-400 text-center py-3">Alle erwarteten Kinder sind da 🎉</p>
+                    <p className="text-sm text-secondary-400 text-center py-3">Noch niemand abgeholt</p>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                       {absent.map(renderCard)}
