@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import ChildPhotoEditor from '@/components/ChildPhotoEditor';
 import { readFileAsDataUrl } from '@/lib/image';
 import ImageCropper from '@/components/ImageCropper';
+import WeekdayPartsPicker, { dayPartsToWeekdays, type DayParts } from '@/components/WeekdayPartsPicker';
 
 interface ChildFormProps {
   initialData?: {
@@ -32,6 +33,11 @@ export default function ChildForm({ initialData, isEditing = false, childId }: C
     birthDate: initialData?.birthDate || '',
     parentEmail: initialData?.parentEmail || '',
     locationId: initialData?.locationId || '',
+    // T17: erweiterte Personalien
+    address: (initialData as any)?.address || '',
+    zipCity: (initialData as any)?.zipCity || '',
+    nationality: (initialData as any)?.nationality || '',
+    entryDate: (initialData as any)?.entryDate || '',
   });
   const [locations, setLocations] = useState<LocationOption[]>([]);
   const [loading, setLoading] = useState(false);
@@ -41,16 +47,10 @@ export default function ChildForm({ initialData, isEditing = false, childId }: C
   const photoRef = useRef<HTMLInputElement>(null);
   const [cropSrc, setCropSrc] = useState<string | null>(null); // T15
 
-  // T2: Belegung (Betreuungstage) direkt beim Anlegen — sofort akzeptiert
+  // T16: Belegung (Betreuungstage) als Wochentag→Tagesteile — sofort akzeptiert
   const todayStr = new Date().toISOString().split('T')[0];
   const plus6m = (() => { const d = new Date(); d.setMonth(d.getMonth() + 6); return d.toISOString().split('T')[0]; })();
-  const DAY_TYPES: Record<string, string> = {
-    FULL_DAY: 'Ganztags', MORNING_WITH_MEAL: 'Vormittag + Essen', MORNING_NO_MEAL: 'Vormittag',
-    AFTERNOON_WITH_MEAL: 'Nachmittag + Essen', AFTERNOON_NO_MEAL: 'Nachmittag',
-  };
-  const [booking, setBooking] = useState({ weekdays: [] as number[], dayType: 'FULL_DAY', startDate: todayStr, endDate: plus6m });
-  const toggleWeekday = (v: number) =>
-    setBooking(b => ({ ...b, weekdays: b.weekdays.includes(v) ? b.weekdays.filter(x => x !== v) : [...b.weekdays, v] }));
+  const [booking, setBooking] = useState<{ dayParts: DayParts; startDate: string; endDate: string }>({ dayParts: {}, startDate: todayStr, endDate: plus6m });
 
   const pickPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
@@ -98,6 +98,10 @@ export default function ChildForm({ initialData, isEditing = false, childId }: C
                   lastName: formData.lastName,
                   birthDate: formData.birthDate,
                   locationId: formData.locationId || null,
+                  address: formData.address || null,
+                  zipCity: formData.zipCity || null,
+                  nationality: formData.nationality || null,
+                  entryDate: formData.entryDate || null,
                 }
               : { ...formData, locationId: formData.locationId || undefined, photoUrl: photo }
           ),
@@ -111,8 +115,9 @@ export default function ChildForm({ initialData, isEditing = false, childId }: C
 
       const createdChild = await response.json();
 
-      // T2: Belegung anlegen (nur beim Erstellen, wenn Wochentage gewählt) — sofort akzeptiert
-      if (!isEditing && createdChild?.id && booking.weekdays.length > 0) {
+      // T16: Belegung anlegen (nur beim Erstellen, wenn Tagesteile gewählt) — sofort akzeptiert
+      const weekdays = dayPartsToWeekdays(booking.dayParts);
+      if (!isEditing && createdChild?.id && weekdays.length > 0) {
         try {
           await fetch('/api/bookings', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -120,8 +125,8 @@ export default function ChildForm({ initialData, isEditing = false, childId }: C
               childId: createdChild.id,
               startDate: booking.startDate,
               endDate: booking.endDate,
-              weekdays: booking.weekdays,
-              dayType: booking.dayType,
+              weekdays,
+              dayParts: booking.dayParts,
             }),
           });
         } catch { /* Belegung best-effort — Kind wurde bereits angelegt */ }
@@ -257,6 +262,26 @@ export default function ChildForm({ initialData, isEditing = false, childId }: C
               </div>
             </div>
 
+            {/* T17: erweiterte Personalien */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+              <div className="sm:col-span-2">
+                <label htmlFor="address" className="label">Adresse</label>
+                <input type="text" id="address" name="address" value={formData.address} onChange={handleChange} className="input" placeholder="Strasse / Nr." />
+              </div>
+              <div>
+                <label htmlFor="zipCity" className="label">PLZ / Ort</label>
+                <input type="text" id="zipCity" name="zipCity" value={formData.zipCity} onChange={handleChange} className="input" placeholder="z.B. 4147 Aesch" />
+              </div>
+              <div>
+                <label htmlFor="nationality" className="label">Nationalität des Kindes</label>
+                <input type="text" id="nationality" name="nationality" value={formData.nationality} onChange={handleChange} className="input" placeholder="z.B. Schweiz" />
+              </div>
+              <div>
+                <label htmlFor="entryDate" className="label">Gewünschtes Eintrittsdatum</label>
+                <input type="date" id="entryDate" name="entryDate" value={formData.entryDate} onChange={handleChange} className="input" />
+              </div>
+            </div>
+
             {/* Eltern-Email hervorgehoben — nur beim Anlegen */}
             {!isEditing && (
               <div className="bg-primary-50 border border-primary-200 rounded-xl p-5">
@@ -276,32 +301,13 @@ export default function ChildForm({ initialData, isEditing = false, childId }: C
               </div>
             )}
 
-            {/* T2: Belegung (Betreuungstage) — sofort akzeptiert */}
+            {/* T16: Gewünschte Betreuungstage — Wochentag → Tagesteile, sofort akzeptiert */}
             {!isEditing && (
               <div className="surface rounded-xl p-5">
-                <p className="eyebrow mb-1">📅 Belegung (optional)</p>
-                <p className="help-text mb-3">Betreuungstage direkt festlegen — wird sofort akzeptiert. Ohne Auswahl wird keine Belegung angelegt.</p>
-                <div className="mb-4">
-                  <label className="label">Wochentage</label>
-                  <div className="flex flex-wrap gap-1.5">
-                    {[{ v: 1, l: 'Mo' }, { v: 2, l: 'Di' }, { v: 3, l: 'Mi' }, { v: 4, l: 'Do' }, { v: 5, l: 'Fr' }].map(d => {
-                      const active = booking.weekdays.includes(d.v);
-                      return (
-                        <button key={d.v} type="button" onClick={() => toggleWeekday(d.v)}
-                          className={`w-11 h-11 rounded-lg border text-sm font-semibold transition-all ${active ? 'border-primary-600 bg-primary-50 text-primary-700 ring-2 ring-primary-200' : 'border-gray-200 bg-white text-secondary-500 hover:border-primary-300'}`}>
-                          {d.l}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div>
-                    <label className="label">Betreuungsart</label>
-                    <select className="input" value={booking.dayType} onChange={e => setBooking(b => ({ ...b, dayType: e.target.value }))}>
-                      {Object.entries(DAY_TYPES).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                    </select>
-                  </div>
+                <p className="eyebrow mb-1">📅 Gewünschte Betreuungstage (optional)</p>
+                <p className="help-text mb-3">Pro Wochentag die Tagesteile wählen — wird sofort akzeptiert. Ohne Auswahl wird keine Belegung angelegt.</p>
+                <WeekdayPartsPicker value={booking.dayParts} onChange={dp => setBooking(b => ({ ...b, dayParts: dp }))} />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
                   <div><label className="label">Von</label><input type="date" className="input" value={booking.startDate} onChange={e => setBooking(b => ({ ...b, startDate: e.target.value }))} /></div>
                   <div><label className="label">Bis</label><input type="date" className="input" value={booking.endDate} onChange={e => setBooking(b => ({ ...b, endDate: e.target.value }))} /></div>
                 </div>

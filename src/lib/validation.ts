@@ -149,6 +149,8 @@ export const createBookingSchema = z.object({
   dayType: z
     .enum(['FULL_DAY', 'MORNING_WITH_MEAL', 'MORNING_NO_MEAL', 'AFTERNOON_WITH_MEAL', 'AFTERNOON_NO_MEAL'])
     .default('FULL_DAY'),
+  // T16: pro Wochentag Tagesteile { "1": ["VORMITTAG","MITTAGESSEN"], ... }
+  dayParts: z.record(z.array(z.string())).optional(),
   notes: z.string().optional(),
 });
 

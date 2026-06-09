@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { dayPartsLabel } from '@/components/WeekdayPartsPicker';
 
 const WEEKDAYS = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
 const DAY_TYPE_LABELS: Record<string, string> = {
@@ -18,9 +19,10 @@ interface Booking {
   endDate: string;
   weekdays: number[];
   dayType: string;
+  dayParts?: Record<number, string[]> | null;
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
   notes?: string;
-  child: { id: string; firstName: string; lastName: string; locationId: string | null; photoUrl?: string | null };
+  child: { id: string; firstName: string; lastName: string; locationId: string | null; photoUrl?: string | null; defaultPickupPerson?: string | null };
 }
 
 interface Location {
@@ -202,7 +204,9 @@ export default function ScheduleView() {
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-secondary-900">{b.child.firstName} {b.child.lastName}</p>
                   <p className="text-sm text-secondary-500">
-                    {fmtRange(b)} · {b.weekdays.map(w => WEEKDAYS[w]).join(', ')} · {DAY_TYPE_LABELS[b.dayType]}
+                    {fmtRange(b)} · {b.dayParts
+                      ? b.weekdays.map(w => `${WEEKDAYS[w]} (${dayPartsLabel(b.dayParts, w)})`).join(', ')
+                      : `${b.weekdays.map(w => WEEKDAYS[w]).join(', ')} · ${DAY_TYPE_LABELS[b.dayType]}`}
                   </p>
                 </div>
                 <div className="flex gap-2 shrink-0">
@@ -247,7 +251,7 @@ export default function ScheduleView() {
                     {avatarEl(b.child)}
                     <div className="min-w-0 flex-1">
                       <p className="font-semibold text-secondary-900 truncate">{b.child.firstName} {b.child.lastName}</p>
-                      <span className="chip chip-primary mt-0.5">{DAY_TYPE_LABELS[b.dayType]}</span>
+                      <span className="chip chip-primary mt-0.5">{(b.dayParts && dayPartsLabel(b.dayParts, dow)) || DAY_TYPE_LABELS[b.dayType]}</span>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
                       <button onClick={() => review(b.id, 'PENDING')}

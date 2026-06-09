@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import WeekdayPartsPicker, { dayPartsToWeekdays, dayPartsLabel, type DayParts } from '@/components/WeekdayPartsPicker';
 
 interface Child {
   id: string;
@@ -17,6 +18,7 @@ interface Booking {
   endDate: string;
   weekdays: number[];
   dayType: string;
+  dayParts?: Record<number, string[]> | null;
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
   child?: { firstName: string; lastName: string };
 }
@@ -49,12 +51,11 @@ export default function ParentBookingsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<{ childId: string; startDate: string; endDate: string; dayParts: DayParts }>({
     childId: '',
     startDate: '',
     endDate: '',
-    weekdays: [1, 2, 3, 4, 5] as number[],
-    dayType: 'FULL_DAY',
+    dayParts: {},
   });
 
   const loadBookings = async () => {
@@ -84,17 +85,12 @@ export default function ParentBookingsPage() {
     })();
   }, [status, router]);
 
-  const toggleWeekday = (v: number) =>
-    setForm(f => ({
-      ...f,
-      weekdays: f.weekdays.includes(v) ? f.weekdays.filter(d => d !== v) : [...f.weekdays, v],
-    }));
-
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    if (!form.childId || !form.startDate || !form.endDate || form.weekdays.length === 0) {
-      setError('Bitte Kind, Zeitraum und mindestens einen Wochentag wählen.');
+    const weekdays = dayPartsToWeekdays(form.dayParts);
+    if (!form.childId || !form.startDate || !form.endDate || weekdays.length === 0) {
+      setError('Bitte Kind, Zeitraum und mindestens einen Tagesteil wählen.');
       return;
     }
     if (form.endDate < form.startDate) {
@@ -106,7 +102,7 @@ export default function ParentBookingsPage() {
       const res = await fetch('/api/bookings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ childId: form.childId, startDate: form.startDate, endDate: form.endDate, weekdays, dayParts: form.dayParts }),
       });
       if (res.ok) {
         await loadBookings();
@@ -167,39 +163,10 @@ export default function ParentBookingsPage() {
           </div>
         </div>
 
-        {/* Wochentage */}
+        {/* T16: Wochentag → Tagesteile (wiederholt sich wöchentlich) */}
         <div className="mb-6">
-          <label className="label">Wochentage (wiederholt sich wöchentlich)</label>
-          <div className="flex flex-wrap gap-2">
-            {WEEKDAYS.map(d => {
-              const active = form.weekdays.includes(d.v);
-              return (
-                <button key={d.v} type="button" onClick={() => toggleWeekday(d.v)}
-                  className={`w-12 h-12 rounded-xl border font-semibold transition-all ${
-                    active ? 'border-primary-600 bg-primary-50 text-primary-700 ring-2 ring-primary-200'
-                           : 'border-gray-200 bg-white text-secondary-500 hover:border-primary-300'}`}>
-                  {d.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Tagestyp als Kacheln */}
-        <div className="mb-6">
-          <label className="label">Betreuungsart</label>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
-            {DAY_TYPES.map(t => {
-              const active = form.dayType === t.id;
-              return (
-                <button key={t.id} type="button" onClick={() => setForm(f => ({ ...f, dayType: t.id }))}
-                  className={`tile ${active ? 'tile-active' : ''}`}>
-                  <span className="text-2xl">{t.icon}</span>
-                  <span className={`text-xs font-medium ${active ? 'text-primary-900' : 'text-secondary-600'}`}>{t.name}</span>
-                </button>
-              );
-            })}
-          </div>
+          <label className="label">Betreuungstage (Tagesteile je Wochentag)</label>
+          <WeekdayPartsPicker value={form.dayParts} onChange={dp => setForm(f => ({ ...f, dayParts: dp }))} />
         </div>
 
         <div className="flex justify-end pt-2">
@@ -230,7 +197,9 @@ export default function ParentBookingsPage() {
                       <span className={`chip ${st.cls}`}>{st.label}</span>
                     </div>
                     <p className="text-sm text-secondary-500 mt-0.5">
-                      {fmt(b.startDate)} – {fmt(b.endDate)} · {b.weekdays.map(w => WEEKDAYS.find(d => d.v === w)?.label).filter(Boolean).join(', ')} · {dt?.icon} {dt?.name}
+                      {fmt(b.startDate)} – {fmt(b.endDate)} · {b.dayParts
+                        ? b.weekdays.map(w => `${WEEKDAYS.find(d => d.v === w)?.label} (${dayPartsLabel(b.dayParts, w)})`).filter(Boolean).join(', ')
+                        : `${b.weekdays.map(w => WEEKDAYS.find(d => d.v === w)?.label).filter(Boolean).join(', ')} · ${dt?.icon || ''} ${dt?.name || ''}`}
                     </p>
                   </div>
                   <button onClick={() => cancelBooking(b.id)}

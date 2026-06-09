@@ -48,6 +48,7 @@ export async function POST(request: Request) {
         endDate: data.endDate,
         weekdays: data.weekdays,
         dayType: data.dayType,
+        dayParts: data.dayParts ?? undefined,
         notes: data.notes,
         status: isStaff ? 'APPROVED' : 'PENDING',
         reviewedBy: isStaff ? user!.id : null,

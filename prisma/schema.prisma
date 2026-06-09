@@ -134,6 +134,11 @@ model Child {
   photoUrl        String?         @db.Text // Profilfoto (Data-URL, klein verkleinert)
   photoConsent    Boolean         @default(false) // Eltern-Einwilligung: Fotos dürfen hochgeladen werden (revDSG)
   defaultPickupPerson String?     // Standard-Abholperson (vorbelegt, T10)
+  // T17: erweiterte Personalien
+  address         String?         // Adresse (Strasse/Nr.)
+  zipCity         String?         // PLZ / Ort
+  nationality     String?         // Nationalität des Kindes
+  entryDate       DateTime?       // gewünschtes Eintrittsdatum
   kitaId          String
   kita            KiTA            @relation(fields: [kitaId], references: [id])
   locationId      String?
@@ -684,8 +689,9 @@ model Booking {
   kita        KiTA          @relation("KiTABookings", fields: [kitaId], references: [id], onDelete: Cascade)
   startDate   DateTime
   endDate     DateTime
-  weekdays    Int[]         // 0=Sonntag ... 6=Samstag
-  dayType     ExtraDayType  @default(FULL_DAY) // Tagestyp / Mahlzeit-Option
+  weekdays    Int[]         // 0=Sonntag ... 6=Samstag (abgeleitet aus dayParts)
+  dayType     ExtraDayType  @default(FULL_DAY) // Legacy-Tagestyp (Fallback)
+  dayParts    Json?         // T16: pro Wochentag Tagesteile { "1": ["VORMITTAG","MITTAGESSEN"], ... }
   status      BookingStatus @default(PENDING)
   notes       String?
   reviewedBy  String?       // User ID, der angenommen/abgelehnt hat

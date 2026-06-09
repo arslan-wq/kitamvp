@@ -73,7 +73,7 @@ export async function PUT(
     }
     const child = access.child;
 
-    const { firstName, lastName, birthDate, locationId } = await request.json();
+    const { firstName, lastName, birthDate, locationId, address, zipCity, nationality, entryDate } = await request.json();
 
     const updated = await prisma.child.update({
       where: { id: params.id },
@@ -81,6 +81,11 @@ export async function PUT(
         firstName: firstName || child.firstName,
         lastName: lastName || child.lastName,
         birthDate: birthDate ? new Date(birthDate) : child.birthDate,
+        // T17: erweiterte Personalien (Eltern & Admin dürfen bearbeiten)
+        ...(address !== undefined ? { address: address || null } : {}),
+        ...(zipCity !== undefined ? { zipCity: zipCity || null } : {}),
+        ...(nationality !== undefined ? { nationality: nationality || null } : {}),
+        ...(entryDate !== undefined ? { entryDate: entryDate ? new Date(entryDate) : null } : {}),
         // Standort darf nur Personal ändern; Eltern-Änderungen werden ignoriert
         ...(access.isStaff
           ? { locationId: locationId === undefined ? child.locationId : locationId || null }

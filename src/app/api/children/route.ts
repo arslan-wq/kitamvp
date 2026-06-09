@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { firstName, lastName, birthDate, parentEmail, locationId, photoUrl } = body;
+    const { firstName, lastName, birthDate, parentEmail, locationId, photoUrl, address, zipCity, nationality, entryDate } = body;
 
     if (!parentEmail) {
       return NextResponse.json(
@@ -94,6 +94,10 @@ export async function POST(request: NextRequest) {
         kitaId,
         ...(locationId && { locationId }),
         ...(photoUrl && { photoUrl }),
+        ...(address && { address }),
+        ...(zipCity && { zipCity }),
+        ...(nationality && { nationality }),
+        ...(entryDate && { entryDate: new Date(entryDate) }),
         parents: {
           connect: [{ id: parent.id }],
         },
