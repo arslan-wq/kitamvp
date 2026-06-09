@@ -15,7 +15,7 @@ export default async function ActivitiesPage() {
   const [children, locations] = await Promise.all([
     prisma.child.findMany({
       where: { kitaId: session.user.kitaId },
-      select: { id: true, firstName: true, lastName: true, photoUrl: true, locationId: true },
+      select: { id: true, firstName: true, lastName: true, photoUrl: true, locationId: true, photoConsent: true },
       orderBy: { firstName: 'asc' },
     }),
     prisma.location.findMany({

@@ -1,9 +1,33 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 
-interface ChildLite { id: string; firstName: string; lastName: string; photoUrl?: string | null; locationId?: string | null; }
+interface ChildLite { id: string; firstName: string; lastName: string; photoUrl?: string | null; locationId?: string | null; photoConsent?: boolean; }
 interface LocationLite { id: string; name: string; }
+
+// T13: Foto nur bei diesen Aktivitätstypen erlaubt
+const PHOTO_TYPES = ['DRAWING', 'TRIP', 'ACTIVITY', 'NOTE'];
+// Bild verkleinern (Seitenverhältnis erhalten) → JPEG Data-URL
+function activityImageToDataUrl(file: File, max = 1280, quality = 0.82): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const scale = Math.min(1, max / Math.max(img.width, img.height));
+        const w = Math.round(img.width * scale), h = Math.round(img.height * scale);
+        const canvas = document.createElement('canvas'); canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d'); if (!ctx) return reject(new Error('no ctx'));
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = () => reject(new Error('img'));
+      img.src = reader.result as string;
+    };
+    reader.onerror = () => reject(new Error('read'));
+    reader.readAsDataURL(file);
+  });
+}
 
 const TYPES = [
   { id: 'EATING', name: 'Essen', icon: '🍽️' }, { id: 'DRINKING', name: 'Trinken', icon: '🥤' },
@@ -34,12 +58,23 @@ export default function ActivitiesBoard({ childrenList, locations }: { childrenL
   const [detail, setDetail] = useState<any | null>(null); // T6: Volltext-Popup
   const nowLocal = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); };
   const [form, setForm] = useState<any>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const camRef = useRef<HTMLInputElement>(null);
+  const [photoWarn, setPhotoWarn] = useState<string[] | null>(null); // T13: Namen ohne Foto-Einwilligung
+
+  const pickPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0]; e.target.value = '';
+    if (!f) return;
+    if (!f.type.startsWith('image/')) { setError('Bitte eine Bilddatei wählen'); return; }
+    try { const dataUrl = await activityImageToDataUrl(f); setForm((prev: any) => ({ ...prev, photo: dataUrl })); }
+    catch { setError('Bild konnte nicht verarbeitet werden'); }
+  };
 
   const toLocalInput = (iso: string) => { const d = new Date(iso); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); };
 
   const openEdit = (a: any) => {
     setEditingId(a.id);
-    setForm({ childId: a.childId, type: a.type, datetime: toLocalInput(a.timestamp), endTime: a.endTime ? toLocalInput(a.endTime) : '', details: a.details || '', notes: a.notes || '' });
+    setForm({ childId: a.childId, type: a.type, datetime: toLocalInput(a.timestamp), endTime: a.endTime ? toLocalInput(a.endTime) : '', details: a.details || '', notes: a.notes || '', photo: a.photoUrl || null });
     setOpen(true);
   };
 
@@ -62,7 +97,7 @@ export default function ActivitiesBoard({ childrenList, locations }: { childrenL
   // T6: Standort zuerst, dann mehrere Kinder
   const openModal = () => {
     setEditingId(null);
-    setForm({ locationId: locations[0]?.id || '__none__', childIds: [], search: '', type: 'ACTIVITY', datetime: nowLocal(), endTime: '', details: '', notes: '' });
+    setForm({ locationId: locations[0]?.id || '__none__', childIds: [], search: '', type: 'ACTIVITY', datetime: nowLocal(), endTime: '', details: '', notes: '', photo: null });
     setOpen(true);
   };
 
@@ -85,8 +120,20 @@ export default function ActivitiesBoard({ childrenList, locations }: { childrenL
       return { ...f, childIds: allSel ? f.childIds.filter((id: string) => !ids.includes(id)) : Array.from(new Set([...f.childIds, ...ids])) };
     });
 
-  const save = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const save = async (e: React.FormEvent | null, confirmed = false) => {
+    e?.preventDefault?.();
+    const photo = PHOTO_TYPES.includes(form.type) ? (form.photo || null) : null;
+    const targets: string[] = editingId ? [form.childId] : (form.childIds || []);
+
+    // T13: Foto-Datenschutz-Warnung — Kinder ohne Einwilligung auflisten
+    if (photo && !confirmed) {
+      const noConsent = targets
+        .map(id => childrenList.find(c => c.id === id))
+        .filter((c): c is ChildLite => !!c && c.photoConsent === false)
+        .map(c => `${c.firstName} ${c.lastName}`);
+      if (noConsent.length > 0) { setPhotoWarn(noConsent); return; }
+    }
+
     setSaving(true); setError('');
     try {
       const ts = new Date(form.datetime).toISOString();
@@ -94,21 +141,20 @@ export default function ActivitiesBoard({ childrenList, locations }: { childrenL
       if (editingId) {
         const res = await fetch(`/api/activities/${editingId}`, {
           method: 'PUT', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ childId: form.childId, type: form.type, timestamp: ts, endTime: endTs, details: form.details || undefined, notes: form.notes || undefined }),
+          body: JSON.stringify({ childId: form.childId, type: form.type, timestamp: ts, endTime: endTs, details: form.details || undefined, notes: form.notes || undefined, photoUrl: photo }),
         });
-        if (res.ok) { setOpen(false); setEditingId(null); await load(); }
+        if (res.ok) { setOpen(false); setEditingId(null); setPhotoWarn(null); await load(); }
         else { const d = await res.json().catch(() => ({})); setError(d.error || 'Speichern fehlgeschlagen'); }
         return;
       }
-      const ids: string[] = form.childIds || [];
-      if (ids.length === 0) { setError('Bitte mindestens ein Kind wählen.'); setSaving(false); return; }
-      const results = await Promise.all(ids.map(cid =>
+      if (targets.length === 0) { setError('Bitte mindestens ein Kind wählen.'); setSaving(false); return; }
+      const results = await Promise.all(targets.map(cid =>
         fetch('/api/activities', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ childId: cid, type: form.type, timestamp: ts, endTime: endTs, details: form.details || undefined, notes: form.notes || undefined }),
+          body: JSON.stringify({ childId: cid, type: form.type, timestamp: ts, endTime: endTs, details: form.details || undefined, notes: form.notes || undefined, photoUrl: photo }),
         })
       ));
-      if (results.every(r => r.ok)) { setOpen(false); await load(); }
+      if (results.every(r => r.ok)) { setOpen(false); setPhotoWarn(null); await load(); }
       else { setError('Einige Aktivitäten konnten nicht gespeichert werden'); await load(); }
     } finally { setSaving(false); }
   };
@@ -378,6 +424,28 @@ export default function ActivitiesBoard({ childrenList, locations }: { childrenL
             )}
             <div><label className="label">Details</label><input className="input" value={form.details} onChange={e => setForm({ ...form, details: e.target.value })} placeholder="z.B. 200ml Milch" /></div>
             <div><label className="label">Notizen</label><textarea className="input" rows={2} value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} /></div>
+
+            {/* T13: Foto nur bei Zeichnen/Ausflug/Beschäftigung/Bemerkung */}
+            {PHOTO_TYPES.includes(form.type) && (
+              <div>
+                <label className="label">📷 Foto (optional)</label>
+                <div className="flex items-center gap-3">
+                  {form.photo && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={form.photo} alt="" className="w-16 h-16 rounded-xl object-cover ring-1 ring-secondary-200" />
+                  )}
+                  <div className="flex flex-wrap gap-2">
+                    <button type="button" onClick={() => fileRef.current?.click()} className="btn btn-secondary btn-sm">📁 Datei wählen</button>
+                    <button type="button" onClick={() => camRef.current?.click()} className="btn btn-secondary btn-sm">📷 Foto aufnehmen</button>
+                    {form.photo && <button type="button" onClick={() => setForm({ ...form, photo: null })} className="btn btn-sm text-red-600 hover:bg-red-50">Entfernen</button>}
+                  </div>
+                </div>
+                <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={pickPhoto} />
+                <input ref={camRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={pickPhoto} />
+                <p className="help-text">Vor dem Speichern wird gewarnt, falls für ausgewählte Kinder keine Foto-Einwilligung vorliegt.</p>
+              </div>
+            )}
+
             <div className="flex justify-end gap-3 pt-2">
               <button type="button" onClick={() => setOpen(false)} className="btn btn-secondary">Abbrechen</button>
               <button type="submit" disabled={saving} className="btn btn-primary px-6">{saving ? 'Speichert…' : 'Aktivität speichern'}</button>
@@ -406,6 +474,10 @@ export default function ActivitiesBoard({ childrenList, locations }: { childrenL
                 </div>
               </div>
               <p><span className="text-secondary-400">Zeitpunkt:</span> {new Date(detail.timestamp).toLocaleString('de-CH', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}{detail.endTime ? ` – ${time(detail.endTime)}` : ''}</p>
+              {detail.photoUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={detail.photoUrl} alt="Foto" className="w-full rounded-xl" />
+              )}
               {detail.details && <div><p className="text-secondary-400 mb-0.5">Details</p><p className="text-secondary-800 whitespace-pre-wrap break-words">{detail.details}</p></div>}
               {detail.notes && <div><p className="text-secondary-400 mb-0.5">Notizen</p><p className="text-secondary-800 whitespace-pre-wrap break-words">{detail.notes}</p></div>}
               {detail.creatorName && <p className="text-xs text-secondary-400 pt-2 border-t border-secondary-100">Eingepflegt von {detail.creatorName}</p>}
@@ -413,6 +485,24 @@ export default function ActivitiesBoard({ childrenList, locations }: { childrenL
             <div className="flex justify-end gap-2 mt-5">
               <button onClick={() => { const a = detail; setDetail(null); openEdit(a); }} className="btn btn-secondary btn-sm">✏️ Bearbeiten</button>
               <button onClick={() => setDetail(null)} className="btn btn-primary btn-sm px-5">Schliessen</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* T13: Foto-Datenschutz-Warnung */}
+      {photoWarn && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4" onClick={() => setPhotoWarn(null)}>
+          <div onClick={e => e.stopPropagation()} className="bg-white rounded-2xl w-full max-w-md p-6 shadow-elevated">
+            <h2 className="text-lg font-bold text-secondary-900 mb-2">⚠️ Foto-Datenschutz</h2>
+            <p className="text-sm text-secondary-700">Für folgende Kinder liegt <strong>keine Foto-Einwilligung</strong> der Eltern vor:</p>
+            <ul className="my-3 space-y-1">
+              {photoWarn.map(n => <li key={n} className="chip chip-warning">🚫 {n}</li>)}
+            </ul>
+            <p className="text-sm text-secondary-700">Ist das Gesicht dieser Kinder auf dem Foto erkennbar? <strong>Falls ja, bitte kein Foto hochladen.</strong></p>
+            <div className="flex flex-col sm:flex-row justify-end gap-2 mt-5">
+              <button onClick={() => setPhotoWarn(null)} className="btn btn-secondary">Abbrechen</button>
+              <button onClick={() => { setPhotoWarn(null); save(null, true); }} className="btn btn-primary">Gesicht nicht erkennbar – speichern</button>
             </div>
           </div>
         </div>
