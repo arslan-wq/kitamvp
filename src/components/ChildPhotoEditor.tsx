@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import ImageCropper from '@/components/ImageCropper';
 
 interface Props {
   childId: string;
@@ -9,37 +10,11 @@ interface Props {
   onChange?: (photoUrl: string | null) => void;
 }
 
-// Verkleinert ein Bild clientseitig auf ein 320px-Quadrat (cover) → JPEG Data-URL
-function resizeToSquare(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const img = new Image();
-      img.onload = () => {
-        const S = 320;
-        const canvas = document.createElement('canvas');
-        canvas.width = S;
-        canvas.height = S;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return reject(new Error('no ctx'));
-        const scale = Math.max(S / img.width, S / img.height);
-        const w = img.width * scale;
-        const h = img.height * scale;
-        ctx.drawImage(img, (S - w) / 2, (S - h) / 2, w, h);
-        resolve(canvas.toDataURL('image/jpeg', 0.85));
-      };
-      img.onerror = () => reject(new Error('img'));
-      img.src = reader.result as string;
-    };
-    reader.onerror = () => reject(new Error('read'));
-    reader.readAsDataURL(file);
-  });
-}
-
 export default function ChildPhotoEditor({ childId, initialPhotoUrl, initials, onChange }: Props) {
   const [photo, setPhoto] = useState<string | null>(initialPhotoUrl || null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [cropSrc, setCropSrc] = useState<string | null>(null); // T15
   const fileRef = useRef<HTMLInputElement>(null);
 
   const save = async (dataUrl: string | null) => {
@@ -74,8 +49,9 @@ export default function ChildPhotoEditor({ childId, initialPhotoUrl, initials, o
       return;
     }
     try {
-      const dataUrl = await resizeToSquare(f);
-      await save(dataUrl);
+      const reader = new FileReader();
+      reader.onload = () => setCropSrc(reader.result as string); // T15: Crop-Modal
+      reader.readAsDataURL(f);
     } catch {
       setError('Bild konnte nicht verarbeitet werden');
     }
@@ -106,6 +82,9 @@ export default function ChildPhotoEditor({ childId, initialPhotoUrl, initials, o
         <p className="text-xs text-secondary-400">JPG/PNG · wird automatisch verkleinert</p>
       </div>
       <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onPick} />
+      {cropSrc && (
+        <ImageCropper src={cropSrc} onCancel={() => setCropSrc(null)} onCrop={(d) => { setCropSrc(null); save(d); }} />
+      )}
     </div>
   );
 }

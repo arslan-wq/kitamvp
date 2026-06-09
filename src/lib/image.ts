@@ -1,5 +1,15 @@
 'use client';
 
+// Liest eine Datei als Data-URL (für den Crop-Modal).
+export function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error('read'));
+    reader.readAsDataURL(file);
+  });
+}
+
 // Verkleinert ein Bild clientseitig auf ein quadratisches JPEG (cover) → Data-URL.
 export function resizeToSquare(file: File, size = 320, quality = 0.85): Promise<string> {
   return new Promise((resolve, reject) => {

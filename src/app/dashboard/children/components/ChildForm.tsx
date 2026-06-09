@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import ChildPhotoEditor from '@/components/ChildPhotoEditor';
-import { resizeToSquare } from '@/lib/image';
+import { readFileAsDataUrl } from '@/lib/image';
+import ImageCropper from '@/components/ImageCropper';
 
 interface ChildFormProps {
   initialData?: {
@@ -38,6 +39,7 @@ export default function ChildForm({ initialData, isEditing = false, childId }: C
   const [success, setSuccess] = useState('');
   const [photo, setPhoto] = useState<string | null>(initialData?.photoUrl || null);
   const photoRef = useRef<HTMLInputElement>(null);
+  const [cropSrc, setCropSrc] = useState<string | null>(null); // T15
 
   // T2: Belegung (Betreuungstage) direkt beim Anlegen — sofort akzeptiert
   const todayStr = new Date().toISOString().split('T')[0];
@@ -55,7 +57,7 @@ export default function ChildForm({ initialData, isEditing = false, childId }: C
     e.target.value = '';
     if (!f) return;
     if (!f.type.startsWith('image/')) { setError('Bitte eine Bilddatei wählen'); return; }
-    try { setPhoto(await resizeToSquare(f)); setError(''); } catch { setError('Bild konnte nicht verarbeitet werden'); }
+    try { setCropSrc(await readFileAsDataUrl(f)); setError(''); } catch { setError('Bild konnte nicht verarbeitet werden'); }
   };
 
   useEffect(() => {
@@ -318,6 +320,10 @@ export default function ChildForm({ initialData, isEditing = false, childId }: C
           </div>
         </form>
       </div>
+
+      {cropSrc && (
+        <ImageCropper src={cropSrc} onCancel={() => setCropSrc(null)} onCrop={(d) => { setPhoto(d); setCropSrc(null); }} />
+      )}
     </div>
   );
 }

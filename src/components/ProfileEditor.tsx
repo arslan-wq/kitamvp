@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { resizeToSquare } from '@/lib/image';
+import { readFileAsDataUrl } from '@/lib/image';
+import ImageCropper from '@/components/ImageCropper';
 
 interface Me {
   id: string;
@@ -30,6 +31,7 @@ export default function ProfileEditor() {
   const [lastName, setLastName] = useState('');
   const [phone, setPhone] = useState('');
   const [photo, setPhoto] = useState<string | null>(null);
+  const [cropSrc, setCropSrc] = useState<string | null>(null); // T15
 
   // T13: Foto-Datenschutz-Einwilligung je Kind (nur Eltern)
   const [kids, setKids] = useState<Array<{ id: string; firstName: string; lastName: string; photoConsent: boolean }>>([]);
@@ -74,7 +76,7 @@ export default function ProfileEditor() {
     if (!f) return;
     if (!f.type.startsWith('image/')) { setMsg('❌ Bitte eine Bilddatei wählen'); return; }
     try {
-      setPhoto(await resizeToSquare(f));
+      setCropSrc(await readFileAsDataUrl(f)); // T15: Crop-Modal öffnen
     } catch {
       setMsg('❌ Bild konnte nicht verarbeitet werden');
     }
@@ -207,6 +209,10 @@ export default function ProfileEditor() {
             </div>
           )}
         </div>
+      )}
+
+      {cropSrc && (
+        <ImageCropper src={cropSrc} onCancel={() => setCropSrc(null)} onCrop={(d) => { setPhoto(d); setCropSrc(null); }} />
       )}
     </div>
   );

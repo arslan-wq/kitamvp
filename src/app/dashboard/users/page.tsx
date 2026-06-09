@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useSession } from 'next-auth/react';
-import { resizeToSquare } from '@/lib/image';
+import { readFileAsDataUrl } from '@/lib/image';
+import ImageCropper from '@/components/ImageCropper';
 
 const ROLE_LABEL: Record<string, string> = {
   ADMIN: 'Admin',
@@ -19,14 +20,16 @@ const ROLE_CHIP: Record<string, string> = {
 function PhotoField({ value, onChange, initials }: { value: string | null; onChange: (v: string | null) => void; initials: string }) {
   const ref = useRef<HTMLInputElement>(null);
   const [err, setErr] = useState('');
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
   const pick = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]; e.target.value = '';
     if (!f) return;
     if (!f.type.startsWith('image/')) { setErr('Bitte eine Bilddatei wählen'); return; }
-    try { onChange(await resizeToSquare(f)); setErr(''); } catch { setErr('Bild konnte nicht verarbeitet werden'); }
+    try { setCropSrc(await readFileAsDataUrl(f)); setErr(''); } catch { setErr('Bild konnte nicht verarbeitet werden'); }
   };
   return (
     <div className="flex items-center gap-4">
+      {cropSrc && <ImageCropper src={cropSrc} onCancel={() => setCropSrc(null)} onCrop={(d) => { onChange(d); setCropSrc(null); }} />}
       <div className="w-20 h-20 rounded-full overflow-hidden bg-primary-100 text-primary-700 font-bold flex items-center justify-center text-2xl shrink-0 ring-1 ring-secondary-200">
         {value ? (
           // eslint-disable-next-line @next/next/no-img-element
