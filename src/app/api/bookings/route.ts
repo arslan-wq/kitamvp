@@ -105,7 +105,7 @@ export async function GET() {
     const bookings = await prisma.booking.findMany({
       where,
       include: {
-        child: { select: { id: true, firstName: true, lastName: true, locationId: true, photoUrl: true } },
+        child: { select: { id: true, firstName: true, lastName: true, locationId: true, photoUrl: true, defaultPickupPerson: true } },
       },
       orderBy: [{ status: 'asc' }, { startDate: 'asc' }],
       take: 300,

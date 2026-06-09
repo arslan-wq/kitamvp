@@ -48,6 +48,13 @@ export default function ScheduleView() {
     if (res.ok) setAttendance(await res.json());
   }, []);
 
+  const [notices, setNotices] = useState<any[]>([]); // T9/T10 Tagesmeldungen
+  const fetchNotices = useCallback(async (d: string) => {
+    const res = await fetch(`/api/day-notices?date=${d}`);
+    if (res.ok) setNotices(await res.json());
+  }, []);
+  const noticeByChild = (childId: string) => notices.find(n => n.childId === childId);
+
   useEffect(() => {
     (async () => {
       try {
@@ -68,7 +75,8 @@ export default function ScheduleView() {
 
   useEffect(() => {
     fetchAttendance(date);
-  }, [date, fetchAttendance]);
+    fetchNotices(date);
+  }, [date, fetchAttendance, fetchNotices]);
 
   const review = async (id: string, status: 'APPROVED' | 'REJECTED' | 'PENDING') => {
     setActionLoading(id);
@@ -222,13 +230,17 @@ export default function ScheduleView() {
             const cap = key === '__none__' ? null : locations.find(l => l.id === key)?.capacity;
 
             // Kinder gelten standardmäßig als anwesend. „Abgang" markiert die Abholung.
-            // Anwesend = noch nicht abgeholt. Abgeholt = checkOutTime gesetzt.
-            const present = items.filter(b => !attByChild(b.childId)?.checkOutTime);
-            const absent = items.filter(b => attByChild(b.childId)?.checkOutTime);
+            // Abgemeldet (krank/abwesend) eigene Zone. Sonst Anwesend / Abgeholt.
+            const isAbsent = (b: Booking) => !!noticeByChild(b.childId)?.absent;
+            const abgemeldet = items.filter(b => isAbsent(b));
+            const present = items.filter(b => !isAbsent(b) && !attByChild(b.childId)?.checkOutTime);
+            const absent = items.filter(b => !isAbsent(b) && attByChild(b.childId)?.checkOutTime);
 
             const renderCard = (b: Booking) => {
               const att = attByChild(b.childId);
               const checkedOut = att?.checkOutTime;
+              const n = noticeByChild(b.childId);
+              const pickup = n?.pickupPerson || (b.child as any).defaultPickupPerson;
               return (
                 <div key={b.childId} className="bg-white rounded-2xl border border-secondary-100 p-4 flex flex-col gap-3">
                   <div className="flex items-center gap-3">
@@ -244,22 +256,35 @@ export default function ScheduleView() {
                         className="btn-icon w-7 h-7 text-secondary-400 hover:bg-yellow-50 hover:text-yellow-700">↩</button>
                     </div>
                   </div>
-                  <div className="flex items-center justify-between text-sm gap-2">
-                    <span className="text-secondary-500 min-w-0 truncate">
-                      {checkedOut ? `Abgang ${fmtTime(att!.checkOutTime)}` : 'Anwesend'}
-                    </span>
-                    <div className="flex gap-1.5 shrink-0">
-                      {!checkedOut ? (
-                        <button onClick={() => attendanceAction(b.childId, 'checkout')}
-                          disabled={actionLoading === b.childId + 'checkout'}
-                          className="btn btn-primary btn-sm">🚪 Abgang</button>
-                      ) : (
-                        <button onClick={() => undoAttendance(b.childId, 'checkout')}
-                          disabled={actionLoading === b.childId + 'undocheckout'}
-                          title="Abholung rückgängig" className="btn btn-secondary btn-sm">↩ Abgang rückgängig</button>
-                      )}
+                  {/* T9/T10: Eltern-Tagesmeldungen */}
+                  {n && (n.absent || n.earlyPickup || pickup) && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {n.absent && <span className="chip chip-warning">🤒 Abgemeldet{n.reason ? `: ${n.reason}` : ''}</span>}
+                      {n.earlyPickup && <span className="chip chip-accent">⏰ Früher abholen{n.pickupTime ? ` ${n.pickupTime}` : ''}</span>}
+                      {pickup && <span className="chip chip-neutral">👤 Abholung: {pickup}</span>}
                     </div>
-                  </div>
+                  )}
+                  {!n && pickup && (
+                    <div className="flex flex-wrap gap-1.5"><span className="chip chip-neutral">👤 Abholung: {pickup}</span></div>
+                  )}
+                  {!isAbsent(b) && (
+                    <div className="flex items-center justify-between text-sm gap-2">
+                      <span className="text-secondary-500 min-w-0 truncate">
+                        {checkedOut ? `Abgang ${fmtTime(att!.checkOutTime)}` : 'Anwesend'}
+                      </span>
+                      <div className="flex gap-1.5 shrink-0">
+                        {!checkedOut ? (
+                          <button onClick={() => attendanceAction(b.childId, 'checkout')}
+                            disabled={actionLoading === b.childId + 'checkout'}
+                            className="btn btn-primary btn-sm">🚪 Abgang</button>
+                        ) : (
+                          <button onClick={() => undoAttendance(b.childId, 'checkout')}
+                            disabled={actionLoading === b.childId + 'undocheckout'}
+                            title="Abholung rückgängig" className="btn btn-secondary btn-sm">↩ Abgang rückgängig</button>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             };
@@ -271,9 +296,23 @@ export default function ScheduleView() {
                     📍 {name}
                   </h3>
                   <span className="chip chip-neutral">
-                    {present.length} anwesend · {items.length}{cap ? ` / ${cap}` : ''} erwartet
+                    {present.length} anwesend{abgemeldet.length ? ` · ${abgemeldet.length} abgemeldet` : ''} · {items.length}{cap ? ` / ${cap}` : ''} erwartet
                   </span>
                 </div>
+
+                {/* Zone: Abgemeldet / krank (T9) */}
+                {abgemeldet.length > 0 && (
+                  <div className="rounded-2xl bg-yellow-50 border border-yellow-100 p-3 mb-3">
+                    <div className="flex items-center gap-2 mb-3 px-1">
+                      <span className="w-2.5 h-2.5 rounded-full bg-yellow-500" />
+                      <p className="font-semibold text-yellow-800 text-sm">🤒 Abgemeldet / krank</p>
+                      <span className="chip chip-warning">{abgemeldet.length}</span>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                      {abgemeldet.map(renderCard)}
+                    </div>
+                  </div>
+                )}
 
                 {/* Zone: Anwesend (oben) */}
                 <div className="rounded-2xl bg-primary-50/60 border border-primary-100 p-3 mb-3">

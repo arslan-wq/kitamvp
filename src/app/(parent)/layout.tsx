@@ -27,6 +27,7 @@ export default async function ParentLayout({
   const navItems = [
     { label: 'Meine Kinder', href: '/children' },
     { label: 'Betreuungstage', href: '/bookings' },
+    { label: 'Abwesenheit', href: '/abmelden' },
     { label: 'Tagesberichte', href: '/daily-reports' },
     { label: 'Aktivitäten', href: '/activities' },
     { label: 'Pinnwand', href: '/messages' },
