@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { childId, type, timestamp, details, notes, photoUrl } = await request.json();
+  const { childId, type, timestamp, endTime, details, notes, photoUrl } = await request.json();
 
   if (!childId || !type || !timestamp) {
     return NextResponse.json(
@@ -93,6 +93,7 @@ export async function POST(request: NextRequest) {
       kitaId: session.user.kitaId,
       type,
       timestamp: new Date(timestamp),
+      endTime: endTime ? new Date(endTime) : null,
       details,
       notes,
       photoUrl,

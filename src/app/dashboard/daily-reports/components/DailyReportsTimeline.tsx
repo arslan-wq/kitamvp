@@ -140,12 +140,16 @@ export default function DailyReportsTimeline({ childrenList, locations }: { chil
     const dateStr = new Date(r.date).toLocaleDateString('de-CH', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
     const w = window.open('', '_blank', 'width=820,height=1000');
     if (!w) return;
+    const logoUrl = `${window.location.origin}/brand/kitaluna-wordmark.svg`;
     w.document.write(`<!doctype html><html lang="de"><head><meta charset="utf-8"><title>Tagesbericht ${childName}</title>
       <style>body{font-family:Arial,Helvetica,sans-serif;color:#1d1d1f;max-width:720px;margin:24px auto;padding:0 16px}
-      h1{font-size:22px;border-bottom:3px solid #555555;padding-bottom:8px}.row{margin:10px 0}.lbl{color:#6e6e73;font-size:13px}
+      .head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;border-bottom:3px solid #555555;padding-bottom:8px;margin-bottom:4px}
+      .head img{height:48px;width:auto}
+      h1{font-size:22px;margin:0}.row{margin:10px 0}.lbl{color:#6e6e73;font-size:13px}
       .val{font-weight:bold}.box{background:#f5f5f7;border:1px solid #ddd;border-radius:10px;padding:12px;margin:8px 0}
-      .brand{color:#555555;font-weight:bold}ul{margin:4px 0}</style></head><body>
-      <h1>📋 Tagesbericht <span class="brand">KitaLuna</span></h1>
+      .brand{color:#555555;font-weight:bold}ul{margin:4px 0}
+      @media print{img{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body>
+      <div class="head"><h1>📋 Tagesbericht</h1><img src="${logoUrl}" alt="KitaLuna" /></div>
       <div class="row"><span class="lbl">Kind:</span> <span class="val">${childName}</span></div>
       <div class="row"><span class="lbl">Datum:</span> <span class="val">${dateStr}</span></div>
       ${r.child?.location?.name ? `<div class="row"><span class="lbl">Standort:</span> <span class="val">${r.child.location.name}</span></div>` : ''}

@@ -227,7 +227,8 @@ model Activity {
   kitaId        String
   kita          KiTA         @relation("KiTAActivities", fields: [kitaId], references: [id], onDelete: Cascade)
   type          ActivityType
-  timestamp     DateTime     // When the activity happened
+  timestamp     DateTime     // When the activity happened (Start)
+  endTime       DateTime?    // Ende (z.B. bei Ausflug von–bis)
   details       String?      // Optional details (e.g., "200ml milk", "15 min sleep")
   createdBy     String       // User ID (staff member)
   notes         String?      // Additional notes

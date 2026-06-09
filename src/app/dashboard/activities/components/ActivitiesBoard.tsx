@@ -39,7 +39,7 @@ export default function ActivitiesBoard({ childrenList, locations }: { childrenL
 
   const openEdit = (a: any) => {
     setEditingId(a.id);
-    setForm({ childId: a.childId, type: a.type, datetime: toLocalInput(a.timestamp), details: a.details || '', notes: a.notes || '' });
+    setForm({ childId: a.childId, type: a.type, datetime: toLocalInput(a.timestamp), endTime: a.endTime ? toLocalInput(a.endTime) : '', details: a.details || '', notes: a.notes || '' });
     setOpen(true);
   };
 
@@ -62,7 +62,7 @@ export default function ActivitiesBoard({ childrenList, locations }: { childrenL
   // T6: Standort zuerst, dann mehrere Kinder
   const openModal = () => {
     setEditingId(null);
-    setForm({ locationId: locations[0]?.id || '__none__', childIds: [], search: '', type: 'ACTIVITY', datetime: nowLocal(), details: '', notes: '' });
+    setForm({ locationId: locations[0]?.id || '__none__', childIds: [], search: '', type: 'ACTIVITY', datetime: nowLocal(), endTime: '', details: '', notes: '' });
     setOpen(true);
   };
 
@@ -90,10 +90,11 @@ export default function ActivitiesBoard({ childrenList, locations }: { childrenL
     setSaving(true); setError('');
     try {
       const ts = new Date(form.datetime).toISOString();
+      const endTs = form.type === 'TRIP' && form.endTime ? new Date(form.endTime).toISOString() : null;
       if (editingId) {
         const res = await fetch(`/api/activities/${editingId}`, {
           method: 'PUT', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ childId: form.childId, type: form.type, timestamp: ts, details: form.details || undefined, notes: form.notes || undefined }),
+          body: JSON.stringify({ childId: form.childId, type: form.type, timestamp: ts, endTime: endTs, details: form.details || undefined, notes: form.notes || undefined }),
         });
         if (res.ok) { setOpen(false); setEditingId(null); await load(); }
         else { const d = await res.json().catch(() => ({})); setError(d.error || 'Speichern fehlgeschlagen'); }
@@ -104,7 +105,7 @@ export default function ActivitiesBoard({ childrenList, locations }: { childrenL
       const results = await Promise.all(ids.map(cid =>
         fetch('/api/activities', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ childId: cid, type: form.type, timestamp: ts, details: form.details || undefined, notes: form.notes || undefined }),
+          body: JSON.stringify({ childId: cid, type: form.type, timestamp: ts, endTime: endTs, details: form.details || undefined, notes: form.notes || undefined }),
         })
       ));
       if (results.every(r => r.ok)) { setOpen(false); await load(); }
@@ -180,7 +181,7 @@ export default function ActivitiesBoard({ childrenList, locations }: { childrenL
             <span className="text-xl">{m.icon}</span>
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold text-secondary-900 truncate">{m.name}</p>
-              <p className="text-xs text-secondary-400">{time(a.timestamp)}</p>
+              <p className="text-xs text-secondary-400">{time(a.timestamp)}{a.endTime ? ` – ${time(a.endTime)}` : ''}</p>
             </div>
             <Avatar a={a} />
           </div>
@@ -293,7 +294,7 @@ export default function ActivitiesBoard({ childrenList, locations }: { childrenL
                           </div>
                         </button>
                         {a.child?.location?.name && <span className="chip chip-accent shrink-0 hidden sm:inline-flex">📍 {a.child.location.name}</span>}
-                        <span className="text-xs text-secondary-400 shrink-0">{time(a.timestamp)}</span>
+                        <span className="text-xs text-secondary-400 shrink-0">{time(a.timestamp)}{a.endTime ? `–${time(a.endTime)}` : ''}</span>
                         <div className="flex gap-1 shrink-0">
                           <button onClick={() => openEdit(a)} title="Bearbeiten" className="btn-icon w-7 h-7 text-secondary-400 hover:bg-primary-50 hover:text-primary-700">✏️</button>
                           <button onClick={() => del(a)} title="Löschen" className="btn-icon w-7 h-7 text-secondary-400 hover:bg-red-50 hover:text-red-600">🗑️</button>
@@ -368,6 +369,13 @@ export default function ActivitiesBoard({ childrenList, locations }: { childrenL
                 ))}
               </div>
             </div>
+            {/* T11: Ausflug von–bis */}
+            {form.type === 'TRIP' && (
+              <div><label className="label">🚌 Ausflug bis (Ende)</label>
+                <input type="datetime-local" className="input" value={form.endTime} onChange={e => setForm({ ...form, endTime: e.target.value })} />
+                <p className="help-text">Start ist „Datum & Zeit" oben.</p>
+              </div>
+            )}
             <div><label className="label">Details</label><input className="input" value={form.details} onChange={e => setForm({ ...form, details: e.target.value })} placeholder="z.B. 200ml Milch" /></div>
             <div><label className="label">Notizen</label><textarea className="input" rows={2} value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} /></div>
             <div className="flex justify-end gap-3 pt-2">
@@ -397,7 +405,7 @@ export default function ActivitiesBoard({ childrenList, locations }: { childrenL
                   {detail.child?.location?.name && <p className="text-xs text-secondary-500">📍 {detail.child.location.name}</p>}
                 </div>
               </div>
-              <p><span className="text-secondary-400">Zeitpunkt:</span> {new Date(detail.timestamp).toLocaleString('de-CH', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+              <p><span className="text-secondary-400">Zeitpunkt:</span> {new Date(detail.timestamp).toLocaleString('de-CH', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}{detail.endTime ? ` – ${time(detail.endTime)}` : ''}</p>
               {detail.details && <div><p className="text-secondary-400 mb-0.5">Details</p><p className="text-secondary-800 whitespace-pre-wrap break-words">{detail.details}</p></div>}
               {detail.notes && <div><p className="text-secondary-400 mb-0.5">Notizen</p><p className="text-secondary-800 whitespace-pre-wrap break-words">{detail.notes}</p></div>}
               {detail.creatorName && <p className="text-xs text-secondary-400 pt-2 border-t border-secondary-100">Eingepflegt von {detail.creatorName}</p>}

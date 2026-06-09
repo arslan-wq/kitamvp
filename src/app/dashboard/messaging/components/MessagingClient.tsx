@@ -30,8 +30,16 @@ export default function MessagingClient({ childrenList, role, locations, myLocat
 
   const [showNew, setShowNew] = useState(false);
   const [nType, setNType] = useState<'announcement' | 'child'>('announcement');
-  const [nChildId, setNChildId] = useState('');
+  const [nChildIds, setNChildIds] = useState<string[]>([]); // T12: mehrere Kinder
+  const [nChildSearch, setNChildSearch] = useState('');
   const [nLocationId, setNLocationId] = useState('');
+
+  const nMatchChildren = childrenList.filter(c => {
+    const q = nChildSearch.trim().toLowerCase();
+    return !q || `${c.firstName} ${c.lastName}`.toLowerCase().includes(q);
+  });
+  const toggleNChild = (id: string) =>
+    setNChildIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   const [nTitle, setNTitle] = useState('');
   const [nContent, setNContent] = useState('');
 
@@ -66,21 +74,30 @@ export default function MessagingClient({ childrenList, role, locations, myLocat
     e.preventDefault();
     setBusy(true); setError('');
     try {
-      const payload: any = { content: nContent, title: nTitle || undefined };
       if (nType === 'child') {
-        if (!nChildId) { setError('Bitte ein Kind wählen.'); setBusy(false); return; }
-        payload.childId = nChildId;
-      } else {
-        payload.isAnnouncement = true;
-        if (isAdmin && nLocationId) payload.locationId = nLocationId;
+        // T12: an alle ausgewählten Kinder gleichzeitig senden (je Kind ein Thread)
+        if (nChildIds.length === 0) { setError('Bitte mindestens ein Kind wählen.'); setBusy(false); return; }
+        const results = await Promise.all(nChildIds.map(cid =>
+          fetch('/api/messages/threads', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content: nContent, title: nTitle || undefined, childId: cid }),
+          })
+        ));
+        if (results.every(r => r.ok)) {
+          setShowNew(false); setNContent(''); setNTitle(''); setNChildIds([]); setNChildSearch('');
+          await loadThreads();
+        } else { setError('Einige Nachrichten konnten nicht gesendet werden'); await loadThreads(); }
+        return;
       }
+      const payload: any = { content: nContent, title: nTitle || undefined, isAnnouncement: true };
+      if (isAdmin && nLocationId) payload.locationId = nLocationId;
       const res = await fetch('/api/messages/threads', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
       const d = await res.json().catch(() => ({}));
       if (res.ok) {
-        setShowNew(false); setNContent(''); setNTitle(''); setNChildId(''); setNLocationId('');
+        setShowNew(false); setNContent(''); setNTitle(''); setNLocationId('');
         await loadThreads();
       } else {
         setError(d.error || 'Erstellen fehlgeschlagen');
@@ -147,11 +164,30 @@ export default function MessagingClient({ childrenList, role, locations, myLocat
             </div>
           ) : (
             <div>
-              <label className="label label-required">Kind</label>
-              <select value={nChildId} onChange={e => setNChildId(e.target.value)} className="input" required>
-                <option value="">— wählen —</option>
-                {childrenList.map(c => <option key={c.id} value={c.id}>{c.firstName} {c.lastName}</option>)}
-              </select>
+              <div className="flex items-center justify-between mb-1">
+                <label className="label label-required mb-0">Kinder ({nChildIds.length} gewählt)</label>
+                {nMatchChildren.length > 0 && (
+                  <button type="button" onClick={() => {
+                    const ids = nMatchChildren.map(c => c.id);
+                    const allSel = ids.every(id => nChildIds.includes(id));
+                    setNChildIds(allSel ? nChildIds.filter(id => !ids.includes(id)) : Array.from(new Set([...nChildIds, ...ids])));
+                  }} className="text-xs font-medium text-primary-600 hover:text-primary-700">
+                    {nMatchChildren.every(c => nChildIds.includes(c.id)) ? 'Alle abwählen' : 'Alle auswählen'}
+                  </button>
+                )}
+              </div>
+              <input className="input mb-2" placeholder="🔍 Kind suchen…" value={nChildSearch} onChange={e => setNChildSearch(e.target.value)} />
+              <div className="max-h-52 overflow-y-auto rounded-xl border border-secondary-100 divide-y divide-secondary-50">
+                {nMatchChildren.length === 0 ? (
+                  <p className="text-sm text-secondary-400 text-center py-4">Kein Kind gefunden</p>
+                ) : nMatchChildren.map(c => (
+                  <label key={c.id} className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-secondary-50">
+                    <input type="checkbox" checked={nChildIds.includes(c.id)} onChange={() => toggleNChild(c.id)} className="w-4 h-4 accent-primary-600" />
+                    <span className="text-sm text-secondary-900">{c.firstName} {c.lastName}</span>
+                  </label>
+                ))}
+              </div>
+              <p className="help-text">Die Nachricht geht an alle gewählten Kinder (Eltern).</p>
             </div>
           )}
 

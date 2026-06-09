@@ -51,13 +51,14 @@ export async function PUT(
     return NextResponse.json({ error: 'Activity not found' }, { status: 404 });
   }
 
-  const { type, timestamp, details, notes, photoUrl } = await request.json();
+  const { type, timestamp, endTime, details, notes, photoUrl } = await request.json();
 
   const updated = await prisma.activity.update({
     where: { id: params.id },
     data: {
       type: type || activity.type,
       timestamp: timestamp ? new Date(timestamp) : activity.timestamp,
+      endTime: endTime !== undefined ? (endTime ? new Date(endTime) : null) : activity.endTime,
       details: details !== undefined ? details : activity.details,
       notes: notes !== undefined ? notes : activity.notes,
       photoUrl: photoUrl !== undefined ? photoUrl : activity.photoUrl,
