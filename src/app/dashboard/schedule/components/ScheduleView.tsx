@@ -1,7 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { dayPartsLabel } from '@/components/WeekdayPartsPicker';
+import BookingCalendar, { type DayMark, expandBookingDays } from '@/components/BookingCalendar';
+import DayBookingModal from '@/components/DayBookingModal';
 
 const WEEKDAYS = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
 const DAY_TYPE_LABELS: Record<string, string> = {
@@ -48,6 +50,11 @@ export default function ScheduleView() {
   const [edSaving, setEdSaving] = useState(false);
   const ED_PARTS = [{ k: 'VORMITTAG', l: 'Vormittag' }, { k: 'MITTAGESSEN', l: 'Mittagessen' }, { k: 'NACHMITTAG', l: 'Nachmittag' }];
 
+  // T3: Tabs (Kanban / Kalender), Zoom-Stufe, Kalender-Tag-Popup
+  const [tab, setTab] = useState<'kanban' | 'kalender'>('kanban');
+  const [zoom, setZoom] = useState<number | null>(null); // null = automatisch
+  const [calModalDate, setCalModalDate] = useState<string | null>(null);
+
   const fetchBookings = useCallback(async () => {
     const res = await fetch('/api/bookings');
     if (res.ok) setBookings(await res.json());
@@ -65,16 +72,23 @@ export default function ScheduleView() {
   }, []);
   const noticeByChild = (childId: string) => notices.find(n => n.childId === childId);
 
-  const [extraDays, setExtraDays] = useState<any[]>([]); // T8 Zusatztage
+  const [extraDays, setExtraDays] = useState<any[]>([]); // T8 Zusatztage (gewählter Tag)
   const fetchExtraDays = useCallback(async (d: string) => {
     const res = await fetch(`/api/extra-days?date=${d}`);
     if (res.ok) setExtraDays(await res.json());
+  }, []);
+
+  // T3: alle Zusatztage für die Kalender-Markierungen
+  const [calExtra, setCalExtra] = useState<any[]>([]);
+  const fetchCalExtra = useCallback(async () => {
+    const res = await fetch('/api/extra-days');
+    if (res.ok) { const d = await res.json(); setCalExtra(Array.isArray(d) ? d : []); }
   }, []);
   const reviewExtraDay = async (id: string, status: 'APPROVED' | 'REJECTED') => {
     setActionLoading('ed' + id);
     try {
       const res = await fetch(`/api/extra-days/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) });
-      if (res.ok) await fetchExtraDays(date); else setError('Aktion fehlgeschlagen');
+      if (res.ok) { await fetchExtraDays(date); fetchCalExtra(); } else setError('Aktion fehlgeschlagen');
     } finally { setActionLoading(null); }
   };
   const openExtraDay = () => { setEdForm({ locationId: locations[0]?.id || '', childId: '', date, parts: [] }); setEdOpen(true); };
@@ -85,7 +99,7 @@ export default function ScheduleView() {
     setEdSaving(true); setError('');
     try {
       const res = await fetch('/api/extra-days', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ childId: edForm.childId, date: edForm.date, parts: edForm.parts }) });
-      if (res.ok) { setEdOpen(false); await fetchExtraDays(date); }
+      if (res.ok) { setEdOpen(false); await fetchExtraDays(date); fetchCalExtra(); }
       else setError('Zusatztag konnte nicht angelegt werden');
     } finally { setEdSaving(false); }
   };
@@ -103,6 +117,7 @@ export default function ScheduleView() {
         if (chRes.ok) setChildren(await chRes.json());
         fetchNotices(date);
         fetchExtraDays(date);
+        fetchCalExtra();
       } catch {
         setError('Daten konnten nicht geladen werden');
       } finally {
@@ -159,6 +174,46 @@ export default function ScheduleView() {
     }
   };
 
+  // T3: Kalender-Markierungen aus allen Buchungen + Zusatztagen
+  const calMarks = useMemo(() => {
+    const m: Record<string, DayMark> = {};
+    for (const b of bookings) {
+      if (b.status === 'REJECTED') continue;
+      const days = expandBookingDays(b as any, new Date(b.startDate.slice(0, 10)), new Date(b.endDate.slice(0, 10)));
+      for (const k of days) {
+        m[k] = m[k] || { count: 0 };
+        m[k].count = (m[k].count || 0) + 1;
+        if (b.status === 'APPROVED') m[k].booked = true; else m[k].pending = true;
+      }
+    }
+    for (const e of calExtra) {
+      if (e.status === 'REJECTED') continue;
+      const k = e.date.slice(0, 10);
+      m[k] = m[k] || { count: 0 };
+      m[k].count = (m[k].count || 0) + 1;
+      m[k].extra = true;
+      if (e.status === 'APPROVED') m[k].booked = true; else m[k].pending = true;
+    }
+    return m;
+  }, [bookings, calExtra]);
+
+  const calExistingOnDay = (dateStr: string): string[] => {
+    const out: string[] = [];
+    const [yy2, mm2, dd2] = dateStr.split('-').map(Number);
+    const dw = new Date(yy2, mm2 - 1, dd2).getDay();
+    for (const b of bookings) {
+      if (b.status === 'REJECTED') continue;
+      if (dateStr >= b.startDate.slice(0, 10) && dateStr <= b.endDate.slice(0, 10) && b.weekdays.includes(dw)) {
+        out.push(`${b.child.firstName} ${b.child.lastName} (${b.status === 'APPROVED' ? 'bestätigt' : 'offen'})`);
+      }
+    }
+    for (const e of calExtra) {
+      if (e.status === 'REJECTED') continue;
+      if (e.date.slice(0, 10) === dateStr) out.push(`⭐ ${e.child?.firstName ?? ''} ${e.child?.lastName ?? ''} · Zusatztag`);
+    }
+    return out;
+  };
+
   if (loading) return <div className="text-center py-8">Laden…</div>;
 
   // Ausgewähltes Datum lokal parsen (kein UTC-Versatz)
@@ -195,6 +250,16 @@ export default function ScheduleView() {
   }
   const expected = Array.from(expectedMap.values());
 
+  // T3: Dynamische Container-Dichte — bei vielen Kindern automatisch verkleinern,
+  // per Zoom-Button überstimmbar (0 = groß, 1 = mittel, 2 = klein).
+  const autoLevel = expected.length > 24 ? 2 : expected.length > 12 ? 1 : 0;
+  const level = zoom ?? autoLevel;
+  const gridCls = ['grid-cols-1 sm:grid-cols-2 xl:grid-cols-3',
+    'grid-cols-2 lg:grid-cols-3 xl:grid-cols-4',
+    'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6'][level];
+  const cardPad = ['p-4', 'p-3', 'p-2'][level];
+  const compact = level >= 2;
+
   // Nach Standort gruppieren
   const locName = (id: string | null) =>
     id ? locations.find(l => l.id === id)?.name ?? 'Unbekannter Standort' : 'Ohne Standort';
@@ -230,14 +295,50 @@ export default function ScheduleView() {
           <p className="eyebrow">Planung</p>
           <h1 className="page-title">📅 Belegungsplan</h1>
         </div>
-        <div className="flex items-center gap-2">
-          <label className="text-sm text-secondary-500 whitespace-nowrap">Tag:</label>
-          <input type="date" value={date} onChange={e => setDate(e.target.value)} className="input max-w-[180px]" />
-          <button onClick={openExtraDay} className="btn btn-primary whitespace-nowrap" disabled={children.length === 0}>+ Zusatztag</button>
-        </div>
+        {tab === 'kanban' && (
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-secondary-500 whitespace-nowrap">Tag:</label>
+            <input type="date" value={date} onChange={e => setDate(e.target.value)} className="input max-w-[180px]" />
+            <button onClick={openExtraDay} className="btn btn-primary whitespace-nowrap" disabled={children.length === 0}>+ Zusatztag</button>
+          </div>
+        )}
+      </div>
+
+      {/* T3: Dossier-Tabs Kanban / Kalender */}
+      <div className="flex gap-1 border-b border-secondary-200">
+        {([{ id: 'kanban', label: '🗂️ Kanban' }, { id: 'kalender', label: '📅 Kalender' }] as const).map(t => (
+          <button key={t.id} onClick={() => setTab(t.id)}
+            className={`px-4 py-2.5 text-sm font-semibold rounded-t-xl border border-b-0 -mb-px transition ${
+              tab === t.id ? 'bg-white border-secondary-200 text-secondary-900' : 'bg-transparent border-transparent text-secondary-500 hover:text-secondary-700'}`}>
+            {t.label}
+          </button>
+        ))}
       </div>
 
       {error && <div className="alert alert-error">{error}</div>}
+
+      {/* T3: Kalender-Ansicht */}
+      {tab === 'kalender' && (
+        <div className="space-y-2">
+          <p className="text-sm text-secondary-500">Tippen Sie auf einen Tag, um eine Buchung anzulegen. ⭐ = Zusatztag · Zahl = erwartete Kinder.</p>
+          <BookingCalendar marks={calMarks} onDayClick={d => setCalModalDate(d)} />
+        </div>
+      )}
+
+      {/* T3: Kanban-Ansicht */}
+      {tab === 'kanban' && (<>
+      {/* Zoom-Steuerung */}
+      <div className="flex items-center justify-end gap-2">
+        <span className="text-sm text-secondary-500">Ansicht:</span>
+        <div className="flex items-center gap-1 bg-secondary-100 rounded-xl p-1">
+          <button onClick={() => setZoom(Math.min(2, level + 1))} disabled={level >= 2} title="Verkleinern"
+            className="btn-icon w-8 h-8 text-secondary-600 hover:bg-white disabled:opacity-40">🔍−</button>
+          <button onClick={() => setZoom(null)} title="Automatisch"
+            className={`px-2.5 h-8 rounded-lg text-xs font-medium ${zoom === null ? 'bg-white text-primary-700' : 'text-secondary-500 hover:bg-white'}`}>Auto</button>
+          <button onClick={() => setZoom(Math.max(0, level - 1))} disabled={level <= 0} title="Vergrössern"
+            className="btn-icon w-8 h-8 text-secondary-600 hover:bg-white disabled:opacity-40">🔍+</button>
+        </div>
+      </div>
 
       {/* Übersicht */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -326,16 +427,16 @@ export default function ScheduleView() {
               const n = noticeByChild(b.childId);
               const pickup = n?.pickupPerson || (b.child as any).defaultPickupPerson;
               return (
-                <div key={b.childId} className="bg-white rounded-2xl border border-secondary-100 p-4 flex flex-col gap-3">
-                  <div className="flex items-center gap-3">
+                <div key={b.childId} className={`bg-white rounded-2xl border border-secondary-100 ${cardPad} flex flex-col ${compact ? 'gap-1.5' : 'gap-3'}`}>
+                  <div className={`flex items-center ${compact ? 'gap-2' : 'gap-3'}`}>
                     {avatarEl(b.child)}
                     <div className="min-w-0 flex-1">
-                      <p className="font-semibold text-secondary-900 truncate">{b.child.firstName} {b.child.lastName}</p>
-                      <span className="chip chip-primary mt-0.5">{(b.dayParts && dayPartsLabel(b.dayParts, dow)) || DAY_TYPE_LABELS[b.dayType]}</span>
-                      {b.isExtraDay && <span className="chip chip-accent mt-0.5 ml-1">⭐ Zusatztag</span>}
+                      <p className={`font-semibold text-secondary-900 truncate ${compact ? 'text-sm' : ''}`}>{b.child.firstName} {compact ? b.child.lastName.charAt(0) + '.' : b.child.lastName}</p>
+                      {!compact && <span className="chip chip-primary mt-0.5">{(b.dayParts && dayPartsLabel(b.dayParts, dow)) || DAY_TYPE_LABELS[b.dayType]}</span>}
+                      {b.isExtraDay && <span className={`chip chip-accent mt-0.5 ${compact ? '' : 'ml-1'}`}>⭐{compact ? '' : ' Zusatztag'}</span>}
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
-                      {!b.isExtraDay && (
+                      {!b.isExtraDay && !compact && (
                         <button onClick={() => review(b.id, 'PENDING')}
                           disabled={actionLoading === b.id}
                           title="Annahme rückgängig machen"
@@ -343,31 +444,33 @@ export default function ScheduleView() {
                       )}
                     </div>
                   </div>
-                  {/* T9/T10: Eltern-Tagesmeldungen */}
-                  {n && (n.absent || n.earlyPickup || pickup) && (
+                  {/* T9/T10: Eltern-Tagesmeldungen (in kompakter Ansicht ausgeblendet) */}
+                  {!compact && n && (n.absent || n.earlyPickup || pickup) && (
                     <div className="flex flex-wrap gap-1.5">
                       {n.absent && <span className="chip chip-warning">🤒 Abgemeldet{n.reason ? `: ${n.reason}` : ''}</span>}
                       {n.earlyPickup && <span className="chip chip-accent">⏰ Früher abholen{n.pickupTime ? ` ${n.pickupTime}` : ''}</span>}
                       {pickup && <span className="chip chip-neutral">👤 Abholung: {pickup}</span>}
                     </div>
                   )}
-                  {!n && pickup && (
+                  {!compact && !n && pickup && (
                     <div className="flex flex-wrap gap-1.5"><span className="chip chip-neutral">👤 Abholung: {pickup}</span></div>
                   )}
                   {!isAbsent(b) && (
                     <div className="flex items-center justify-between text-sm gap-2">
-                      <span className="text-secondary-500 min-w-0 truncate">
-                        {checkedOut ? `Abgang ${fmtTime(att!.checkOutTime)}` : 'Anwesend'}
-                      </span>
-                      <div className="flex gap-1.5 shrink-0">
+                      {!compact && (
+                        <span className="text-secondary-500 min-w-0 truncate">
+                          {checkedOut ? `Abgang ${fmtTime(att!.checkOutTime)}` : 'Anwesend'}
+                        </span>
+                      )}
+                      <div className="flex gap-1.5 shrink-0 ml-auto">
                         {!checkedOut ? (
                           <button onClick={() => attendanceAction(b.childId, 'checkout')}
                             disabled={actionLoading === b.childId + 'checkout'}
-                            className="btn btn-primary btn-sm">🚪 Abgang</button>
+                            className="btn btn-primary btn-sm" title="Abgang">🚪{compact ? '' : ' Abgang'}</button>
                         ) : (
                           <button onClick={() => undoAttendance(b.childId, 'checkout')}
                             disabled={actionLoading === b.childId + 'undocheckout'}
-                            title="Abholung rückgängig" className="btn btn-secondary btn-sm">↩ Abgang rückgängig</button>
+                            title="Abholung rückgängig" className="btn btn-secondary btn-sm">↩{compact ? '' : ' Abgang rückgängig'}</button>
                         )}
                       </div>
                     </div>
@@ -395,7 +498,7 @@ export default function ScheduleView() {
                       <p className="font-semibold text-yellow-800 text-sm">🤒 Abgemeldet / krank</p>
                       <span className="chip chip-warning">{abgemeldet.length}</span>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                    <div className={`grid ${gridCls} ${compact ? "gap-2" : "gap-3"}`}>
                       {abgemeldet.map(renderCard)}
                     </div>
                   </div>
@@ -411,7 +514,7 @@ export default function ScheduleView() {
                   {present.length === 0 ? (
                     <p className="text-sm text-secondary-400 text-center py-3">Alle Kinder wurden abgeholt 👋</p>
                   ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                    <div className={`grid ${gridCls} ${compact ? "gap-2" : "gap-3"}`}>
                       {present.map(renderCard)}
                     </div>
                   )}
@@ -427,7 +530,7 @@ export default function ScheduleView() {
                   {absent.length === 0 ? (
                     <p className="text-sm text-secondary-400 text-center py-3">Noch niemand abgeholt</p>
                   ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                    <div className={`grid ${gridCls} ${compact ? "gap-2" : "gap-3"}`}>
                       {absent.map(renderCard)}
                     </div>
                   )}
@@ -436,6 +539,18 @@ export default function ScheduleView() {
             );
           })}
         </div>
+      )}
+      </>)}
+
+      {/* T3: Kalender-Tag → Buchung für ein Kind anlegen (Personal) */}
+      {calModalDate && (
+        <DayBookingModal
+          date={calModalDate}
+          childrenList={children}
+          existing={calExistingOnDay(calModalDate)}
+          onClose={() => setCalModalDate(null)}
+          onCreated={() => { fetchBookings(); fetchCalExtra(); }}
+        />
       )}
 
       {/* T8: Zusatztag anlegen (Personal) */}
