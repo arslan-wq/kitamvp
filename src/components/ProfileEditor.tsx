@@ -14,6 +14,7 @@ interface Me {
   phone?: string;
   role?: string;
   photoUrl?: string | null;
+  emailNotifications?: boolean;
 }
 
 const ROLE_LABEL: Record<string, string> = { ADMIN: 'Admin', KITA_LEITER: 'Leitung', BETREUER: 'Betreuer' };
@@ -37,6 +38,24 @@ export default function ProfileEditor() {
   const [kids, setKids] = useState<Array<{ id: string; firstName: string; lastName: string; photoConsent: boolean }>>([]);
   const [consentBusy, setConsentBusy] = useState<string | null>(null);
 
+  // T4: E-Mail-Benachrichtigungen (nur Eltern)
+  const [emailNotif, setEmailNotif] = useState(true);
+  const [emailNotifBusy, setEmailNotifBusy] = useState(false);
+
+  const toggleEmailNotif = async (enabled: boolean) => {
+    setEmailNotifBusy(true);
+    const prev = emailNotif;
+    setEmailNotif(enabled);
+    try {
+      const res = await fetch('/api/me', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emailNotifications: enabled }),
+      });
+      if (!res.ok) setEmailNotif(prev);
+    } catch { setEmailNotif(prev); }
+    finally { setEmailNotifBusy(false); }
+  };
+
   const toggleConsent = async (childId: string, consent: boolean) => {
     setConsentBusy(childId);
     try {
@@ -59,6 +78,7 @@ export default function ProfileEditor() {
           setLastName(d.lastName || '');
           setPhone(d.phone || '');
           setPhoto(d.photoUrl || null);
+          setEmailNotif(d.emailNotifications !== false);
           if (d.type === 'parent') {
             fetch('/api/parent/children')
               .then((r) => (r.ok ? r.json() : []))
@@ -169,6 +189,35 @@ export default function ProfileEditor() {
           <button type="submit" disabled={saving} className="btn btn-primary px-6">{saving ? 'Speichert…' : '💾 Speichern'}</button>
         </div>
       </form>
+
+      {/* T4: E-Mail-Benachrichtigungen (nur Eltern) */}
+      {me.type === 'parent' && (
+        <div className="card p-6 space-y-4">
+          <div>
+            <p className="eyebrow">Benachrichtigungen</p>
+            <h2 className="text-lg font-bold text-secondary-900">E-Mail-Benachrichtigungen</h2>
+            <p className="text-sm text-secondary-500 mt-1">
+              Erhalten Sie E-Mails zu Tagesberichten, Aktivitäten, Mitteilungen und Buchungs-Entscheidungen.
+              Wichtige Sicherheits-E-Mails (z.&nbsp;B. Passwort zurücksetzen) werden weiterhin gesendet.
+            </p>
+          </div>
+          <label className="flex items-start gap-3 p-3 surface rounded-xl cursor-pointer">
+            <input
+              type="checkbox"
+              checked={emailNotif}
+              disabled={emailNotifBusy}
+              onChange={(e) => toggleEmailNotif(e.target.checked)}
+              className="w-5 h-5 accent-primary-600 mt-0.5"
+            />
+            <span>
+              <span className="font-medium text-secondary-900">E-Mail-Benachrichtigungen erhalten</span>
+              <span className={`chip mt-1 block w-fit ${emailNotif ? 'chip-success' : 'chip-neutral'}`}>
+                {emailNotif ? '✓ Aktiviert' : 'Deaktiviert'}
+              </span>
+            </span>
+          </label>
+        </div>
+      )}
 
       {/* T13: Foto-Datenschutz-Einwilligung (nur Eltern) */}
       {me.type === 'parent' && (

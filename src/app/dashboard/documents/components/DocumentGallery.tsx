@@ -76,29 +76,40 @@ export default function DocumentGallery() {
 
   const consentOf = (id: string) => children.find((c) => c.id === id)?.photoConsent;
 
+  const MAX_FILES = 6; // T5
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]; e.target.value = '';
-    if (!file) return;
-    setError(''); setUploading(true);
+    let files = Array.from(e.target.files || []); e.target.value = '';
+    if (!files.length) return;
+    setError('');
+    if (files.length > MAX_FILES) {
+      setError(`Maximal ${MAX_FILES} Dateien auf einmal — die ersten ${MAX_FILES} werden hochgeladen.`);
+      files = files.slice(0, MAX_FILES);
+    }
+    // Vorab-Hinweis: Foto ohne Einwilligung (für gewähltes Kind)
+    const hasImage = files.some((f) => f.type.startsWith('image/'));
+    if (hasImage && selectedChildId && consentOf(selectedChildId) === false) {
+      const c = children.find((x) => x.id === selectedChildId);
+      setError(`Für ${c?.firstName} ${c?.lastName} liegt keine Foto-Einwilligung der Eltern vor. Es dürfen keine Bilder hochgeladen werden.`);
+      return;
+    }
+    setUploading(true);
+    let failed = 0;
     try {
-      const isImage = file.type.startsWith('image/');
-      const kind = isImage ? 'photo' : 'document';
-      // Vorab-Hinweis: Foto ohne Einwilligung
-      if (kind === 'photo' && selectedChildId && consentOf(selectedChildId) === false) {
-        const c = children.find((x) => x.id === selectedChildId);
-        setError(`Für ${c?.firstName} ${c?.lastName} liegt keine Foto-Einwilligung der Eltern vor. Es dürfen keine Bilder hochgeladen werden.`);
-        setUploading(false);
-        return;
+      for (const file of files) {
+        const isImage = file.type.startsWith('image/');
+        const kind = isImage ? 'photo' : 'document';
+        try {
+          const dataUrl = isImage ? await imageToDataUrl(file) : await fileToDataUrl(file);
+          const res = await fetch('/api/documents', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ childId: selectedChildId || null, fileName: file.name, storageUrl: dataUrl, kind }),
+          });
+          if (!res.ok) failed++;
+        } catch { failed++; }
       }
-      const dataUrl = isImage ? await imageToDataUrl(file) : await fileToDataUrl(file);
-      const res = await fetch('/api/documents', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ childId: selectedChildId || null, fileName: file.name, storageUrl: dataUrl, kind }),
-      });
-      if (res.ok) { await load(); }
-      else { const d = await res.json().catch(() => ({})); setError(d.error || 'Upload fehlgeschlagen'); }
-    } catch { setError('Datei konnte nicht verarbeitet werden'); }
-    finally { setUploading(false); }
+      await load();
+      if (failed > 0) setError(`${failed} von ${files.length} Datei(en) konnten nicht hochgeladen werden.`);
+    } finally { setUploading(false); }
   };
 
   const del = async (doc: Doc) => {
@@ -119,8 +130,8 @@ export default function DocumentGallery() {
           <p className="page-subtitle">Fotos &amp; Dateien — Fotos nur mit Eltern-Einwilligung</p>
         </div>
         <label className="btn btn-primary cursor-pointer">
-          <input type="file" accept="image/*,application/pdf" onChange={handleUpload} disabled={uploading} className="hidden" />
-          {uploading ? 'Hochladen…' : '+ Hochladen'}
+          <input type="file" accept="image/*,application/pdf" multiple onChange={handleUpload} disabled={uploading} className="hidden" />
+          {uploading ? 'Hochladen…' : '+ Hochladen (max. 6)'}
         </label>
       </div>
 

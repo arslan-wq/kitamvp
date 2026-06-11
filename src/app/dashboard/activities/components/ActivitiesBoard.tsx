@@ -62,19 +62,31 @@ export default function ActivitiesBoard({ childrenList, locations }: { childrenL
   const camRef = useRef<HTMLInputElement>(null);
   const [photoWarn, setPhotoWarn] = useState<string[] | null>(null); // T13: Namen ohne Foto-Einwilligung
 
+  // T5: bis zu 6 Fotos hochladen
+  const MAX_PHOTOS = 6;
   const pickPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0]; e.target.value = '';
-    if (!f) return;
-    if (!f.type.startsWith('image/')) { setError('Bitte eine Bilddatei wählen'); return; }
-    try { const dataUrl = await activityImageToDataUrl(f); setForm((prev: any) => ({ ...prev, photo: dataUrl })); }
+    const files = Array.from(e.target.files || []); e.target.value = '';
+    if (!files.length) return;
+    const imgs = files.filter((f) => f.type.startsWith('image/'));
+    if (!imgs.length) { setError('Bitte eine Bilddatei wählen'); return; }
+    const current: string[] = form?.photos || [];
+    const room = Math.max(0, MAX_PHOTOS - current.length);
+    if (room === 0) { setError(`Maximal ${MAX_PHOTOS} Bilder.`); return; }
+    try {
+      const toAdd = await Promise.all(imgs.slice(0, room).map((f) => activityImageToDataUrl(f)));
+      setForm((prev: any) => ({ ...prev, photos: [...(prev.photos || []), ...toAdd].slice(0, MAX_PHOTOS) }));
+      if (imgs.length > room) setError(`Maximal ${MAX_PHOTOS} Bilder — ${imgs.length - room} wurde(n) ignoriert.`);
+    }
     catch { setError('Bild konnte nicht verarbeitet werden'); }
   };
+  const removePhoto = (idx: number) =>
+    setForm((prev: any) => ({ ...prev, photos: (prev.photos || []).filter((_: string, i: number) => i !== idx) }));
 
   const toLocalInput = (iso: string) => { const d = new Date(iso); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); };
 
   const openEdit = (a: any) => {
     setEditingId(a.id);
-    setForm({ childId: a.childId, type: a.type, datetime: toLocalInput(a.timestamp), endTime: a.endTime ? toLocalInput(a.endTime) : '', details: a.details || '', notes: a.notes || '', photo: a.photoUrl || null });
+    setForm({ childId: a.childId, type: a.type, datetime: toLocalInput(a.timestamp), endTime: a.endTime ? toLocalInput(a.endTime) : '', details: a.details || '', notes: a.notes || '', photos: (a.photoUrls?.length ? a.photoUrls : (a.photoUrl ? [a.photoUrl] : [])) });
     setOpen(true);
   };
 
@@ -97,7 +109,7 @@ export default function ActivitiesBoard({ childrenList, locations }: { childrenL
   // T6: Standort zuerst, dann mehrere Kinder
   const openModal = () => {
     setEditingId(null);
-    setForm({ locationId: locations[0]?.id || '__none__', childIds: [], search: '', type: 'ACTIVITY', datetime: nowLocal(), endTime: '', details: '', notes: '', photo: null });
+    setForm({ locationId: locations[0]?.id || '__none__', childIds: [], search: '', type: 'ACTIVITY', datetime: nowLocal(), endTime: '', details: '', notes: '', photos: [] });
     setOpen(true);
   };
 
@@ -122,11 +134,11 @@ export default function ActivitiesBoard({ childrenList, locations }: { childrenL
 
   const save = async (e: React.FormEvent | null, confirmed = false) => {
     e?.preventDefault?.();
-    const photo = PHOTO_TYPES.includes(form.type) ? (form.photo || null) : null;
+    const photos: string[] = PHOTO_TYPES.includes(form.type) ? (form.photos || []) : [];
     const targets: string[] = editingId ? [form.childId] : (form.childIds || []);
 
     // T13: Foto-Datenschutz-Warnung — Kinder ohne Einwilligung auflisten
-    if (photo && !confirmed) {
+    if (photos.length > 0 && !confirmed) {
       const noConsent = targets
         .map(id => childrenList.find(c => c.id === id))
         .filter((c): c is ChildLite => !!c && c.photoConsent === false)
@@ -141,7 +153,7 @@ export default function ActivitiesBoard({ childrenList, locations }: { childrenL
       if (editingId) {
         const res = await fetch(`/api/activities/${editingId}`, {
           method: 'PUT', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ childId: form.childId, type: form.type, timestamp: ts, endTime: endTs, details: form.details || undefined, notes: form.notes || undefined, photoUrl: photo }),
+          body: JSON.stringify({ childId: form.childId, type: form.type, timestamp: ts, endTime: endTs, details: form.details || undefined, notes: form.notes || undefined, photoUrls: photos }),
         });
         if (res.ok) { setOpen(false); setEditingId(null); setPhotoWarn(null); await load(); }
         else { const d = await res.json().catch(() => ({})); setError(d.error || 'Speichern fehlgeschlagen'); }
@@ -151,7 +163,7 @@ export default function ActivitiesBoard({ childrenList, locations }: { childrenL
       const results = await Promise.all(targets.map(cid =>
         fetch('/api/activities', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ childId: cid, type: form.type, timestamp: ts, endTime: endTs, details: form.details || undefined, notes: form.notes || undefined, photoUrl: photo }),
+          body: JSON.stringify({ childId: cid, type: form.type, timestamp: ts, endTime: endTs, details: form.details || undefined, notes: form.notes || undefined, photoUrls: photos }),
         })
       ));
       if (results.every(r => r.ok)) { setOpen(false); setPhotoWarn(null); await load(); }
@@ -428,21 +440,29 @@ export default function ActivitiesBoard({ childrenList, locations }: { childrenL
             {/* T13: Foto nur bei Zeichnen/Ausflug/Beschäftigung/Bemerkung */}
             {PHOTO_TYPES.includes(form.type) && (
               <div>
-                <label className="label">📷 Foto (optional)</label>
-                <div className="flex items-center gap-3">
-                  {form.photo && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={form.photo} alt="" className="w-16 h-16 rounded-xl object-cover ring-1 ring-secondary-200" />
-                  )}
-                  <div className="flex flex-wrap gap-2">
-                    <button type="button" onClick={() => fileRef.current?.click()} className="btn btn-secondary btn-sm">📁 Datei wählen</button>
-                    <button type="button" onClick={() => camRef.current?.click()} className="btn btn-secondary btn-sm">📷 Foto aufnehmen</button>
-                    {form.photo && <button type="button" onClick={() => setForm({ ...form, photo: null })} className="btn btn-sm text-red-600 hover:bg-red-50">Entfernen</button>}
+                <label className="label">📷 Fotos (optional · max. {MAX_PHOTOS})</label>
+                {form.photos?.length > 0 && (
+                  <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 mb-2">
+                    {form.photos.map((src: string, i: number) => (
+                      <div key={i} className="relative group">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={src} alt="" className="w-full aspect-square rounded-xl object-cover ring-1 ring-secondary-200" />
+                        <button type="button" onClick={() => removePhoto(i)}
+                          className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-600 text-white text-xs flex items-center justify-center shadow"
+                          title="Entfernen">✕</button>
+                      </div>
+                    ))}
                   </div>
-                </div>
-                <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={pickPhoto} />
+                )}
+                {(form.photos?.length || 0) < MAX_PHOTOS && (
+                  <div className="flex flex-wrap gap-2">
+                    <button type="button" onClick={() => fileRef.current?.click()} className="btn btn-secondary btn-sm">📁 Dateien wählen</button>
+                    <button type="button" onClick={() => camRef.current?.click()} className="btn btn-secondary btn-sm">📷 Foto aufnehmen</button>
+                  </div>
+                )}
+                <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={pickPhoto} />
                 <input ref={camRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={pickPhoto} />
-                <p className="help-text">Vor dem Speichern wird gewarnt, falls für ausgewählte Kinder keine Foto-Einwilligung vorliegt.</p>
+                <p className="help-text">Bis zu {MAX_PHOTOS} Bilder. Vor dem Speichern wird gewarnt, falls für ausgewählte Kinder keine Foto-Einwilligung vorliegt.</p>
               </div>
             )}
 
@@ -474,10 +494,21 @@ export default function ActivitiesBoard({ childrenList, locations }: { childrenL
                 </div>
               </div>
               <p><span className="text-secondary-400">Zeitpunkt:</span> {new Date(detail.timestamp).toLocaleString('de-CH', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}{detail.endTime ? ` – ${time(detail.endTime)}` : ''}</p>
-              {detail.photoUrl && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={detail.photoUrl} alt="Foto" className="w-full rounded-xl" />
-              )}
+              {(() => {
+                const imgs: string[] = detail.photoUrls?.length ? detail.photoUrls : (detail.photoUrl ? [detail.photoUrl] : []);
+                if (!imgs.length) return null;
+                return imgs.length === 1 ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={imgs[0]} alt="Foto" className="w-full rounded-xl" />
+                ) : (
+                  <div className="grid grid-cols-2 gap-2">
+                    {imgs.map((src, i) => (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img key={i} src={src} alt={`Foto ${i + 1}`} className="w-full aspect-square rounded-xl object-cover" />
+                    ))}
+                  </div>
+                );
+              })()}
               {detail.details && <div><p className="text-secondary-400 mb-0.5">Details</p><p className="text-secondary-800 whitespace-pre-wrap break-words">{detail.details}</p></div>}
               {detail.notes && <div><p className="text-secondary-400 mb-0.5">Notizen</p><p className="text-secondary-800 whitespace-pre-wrap break-words">{detail.notes}</p></div>}
               {detail.creatorName && <p className="text-xs text-secondary-400 pt-2 border-t border-secondary-100">Eingepflegt von {detail.creatorName}</p>}

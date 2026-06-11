@@ -18,7 +18,7 @@ export async function GET() {
   if (isParent(session)) {
     const p = await prisma.parent.findUnique({
       where: { id },
-      select: { id: true, email: true, firstName: true, lastName: true, phone: true, photoUrl: true },
+      select: { id: true, email: true, firstName: true, lastName: true, phone: true, photoUrl: true, emailNotifications: true },
     });
     if (!p) return NextResponse.json({ error: 'Not found' }, { status: 404 });
     return NextResponse.json({ ...p, name: `${p.firstName} ${p.lastName}`, type: 'parent' });
@@ -56,10 +56,11 @@ export async function PATCH(request: NextRequest) {
     if (typeof body.lastName === 'string' && body.lastName.trim()) data.lastName = body.lastName.trim();
     if (typeof body.phone === 'string') data.phone = body.phone;
     if (body.photoUrl !== undefined) data.photoUrl = body.photoUrl;
+    if (typeof body.emailNotifications === 'boolean') data.emailNotifications = body.emailNotifications; // T4
     const p = await prisma.parent.update({
       where: { id },
       data,
-      select: { id: true, firstName: true, lastName: true, phone: true, photoUrl: true },
+      select: { id: true, firstName: true, lastName: true, phone: true, photoUrl: true, emailNotifications: true },
     });
     return NextResponse.json({ ...p, name: `${p.firstName} ${p.lastName}`, type: 'parent' });
   }

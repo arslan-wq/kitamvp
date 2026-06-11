@@ -1,6 +1,20 @@
 import { Resend } from 'resend';
+import { prisma } from '@/lib/db';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
+
+// T4: Eltern können E-Mail-Benachrichtigungen abschalten.
+// Liefert false NUR, wenn die Adresse zu einem Elternteil gehört, das Mails deaktiviert hat.
+// Personal-/unbekannte Adressen erhalten weiterhin Mails.
+async function parentWantsEmail(email: string): Promise<boolean> {
+  try {
+    const p = await prisma.parent.findUnique({ where: { email }, select: { emailNotifications: true } });
+    if (!p) return true;
+    return p.emailNotifications !== false;
+  } catch {
+    return true;
+  }
+}
 
 // Absender aus verifizierter Domain (Resend). Fallback auf kitaluna-app.ch.
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'KitaLuna <noreply@kitaluna-app.ch>';
@@ -136,6 +150,7 @@ export async function sendNewMessageEmail(
   const subject = opts.isAnnouncement
     ? `Neue Mitteilung: ${opts.title || 'Ankündigung'}`
     : `Neue Nachricht von ${opts.senderName}`;
+  if (!(await parentWantsEmail(to))) return { skipped: true } as any; // T4
   const safePreview = (opts.preview || '').slice(0, 240);
   const html = `
     <div style="max-width:600px;margin:0 auto;font-family:Arial,sans-serif;color:#1d1d1f">
@@ -163,6 +178,7 @@ export async function sendDailyReportEmail(
   opts: { parentName?: string; childName: string; dateLabel: string }
 ) {
   const base = process.env.NEXT_PUBLIC_APP_URL || '';
+  if (!(await parentWantsEmail(to))) return { skipped: true } as any; // T4
   const link = `${base}/daily-reports`;
   const subject = `Tagesbericht für ${opts.childName} – ${opts.dateLabel}`;
   const html = `
@@ -189,6 +205,7 @@ export async function sendActivityEmail(
   opts: { parentName?: string; childName: string; activityLabel: string; timeLabel: string; details?: string | null }
 ) {
   const base = process.env.NEXT_PUBLIC_APP_URL || '';
+  if (!(await parentWantsEmail(to))) return { skipped: true } as any; // T4
   const link = `${base}/children`;
   const subject = `Aktivität: ${opts.childName} – ${opts.activityLabel}`;
   const html = `
@@ -279,6 +296,7 @@ export async function sendBookingDecisionEmail(
   opts: { parentName?: string; childName: string; periodLabel: string; approved: boolean }
 ) {
   const base = process.env.NEXT_PUBLIC_APP_URL || '';
+  if (!(await parentWantsEmail(to))) return { skipped: true } as any; // T4
   const link = `${base}/bookings`;
   const subject = opts.approved
     ? `Betreuung bestätigt: ${opts.childName} – ${opts.periodLabel}`

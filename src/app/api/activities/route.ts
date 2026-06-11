@@ -69,7 +69,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { childId, type, timestamp, endTime, details, notes, photoUrl } = await request.json();
+  const { childId, type, timestamp, endTime, details, notes, photoUrl, photoUrls } = await request.json();
+  // T5: bis zu 6 Fotos; photoUrl bleibt = erstes Bild (Rückwärtskompatibilität)
+  const photos: string[] = Array.isArray(photoUrls)
+    ? photoUrls.filter((u: any) => typeof u === 'string' && u).slice(0, 6)
+    : (photoUrl ? [photoUrl] : []);
 
   if (!childId || !type || !timestamp) {
     return NextResponse.json(
@@ -96,7 +100,8 @@ export async function POST(request: NextRequest) {
       endTime: endTime ? new Date(endTime) : null,
       details,
       notes,
-      photoUrl,
+      photoUrl: photos[0] || null,
+      photoUrls: photos,
       createdBy: session.user.id,
     },
     include: {

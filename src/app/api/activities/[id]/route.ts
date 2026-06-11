@@ -51,7 +51,11 @@ export async function PUT(
     return NextResponse.json({ error: 'Activity not found' }, { status: 404 });
   }
 
-  const { type, timestamp, endTime, details, notes, photoUrl } = await request.json();
+  const { type, timestamp, endTime, details, notes, photoUrl, photoUrls } = await request.json();
+  // T5: bis zu 6 Fotos
+  const photos: string[] | undefined = Array.isArray(photoUrls)
+    ? photoUrls.filter((u: any) => typeof u === 'string' && u).slice(0, 6)
+    : undefined;
 
   const updated = await prisma.activity.update({
     where: { id: params.id },
@@ -61,7 +65,9 @@ export async function PUT(
       endTime: endTime !== undefined ? (endTime ? new Date(endTime) : null) : activity.endTime,
       details: details !== undefined ? details : activity.details,
       notes: notes !== undefined ? notes : activity.notes,
-      photoUrl: photoUrl !== undefined ? photoUrl : activity.photoUrl,
+      ...(photos !== undefined
+        ? { photoUrls: photos, photoUrl: photos[0] || null }
+        : photoUrl !== undefined ? { photoUrl } : {}),
     },
     include: {
       child: true,

@@ -206,6 +206,7 @@ model Parent {
   lastName      String
   phone         String
   photoUrl      String?                @db.Text // Profilfoto (Data-URL, klein verkleinert)
+  emailNotifications Boolean           @default(true) // T4: Eltern können E-Mail-Benachrichtigungen abschalten
   archivedAt    DateTime?              // Archiviert (ausgeblendet); aus Archiv endgültig löschbar
   children      Child[]                @relation("ChildParents")
   deviceTokens  ParentDeviceToken[]    @relation("ParentTokens")
@@ -272,7 +273,8 @@ model Activity {
   details       String?      // Optional details (e.g., "200ml milk", "15 min sleep")
   createdBy     String       // User ID (staff member)
   notes         String?      // Additional notes
-  photoUrl      String?      // Optional photo URL (drawing, etc.)
+  photoUrl      String?      // Optional photo URL (drawing, etc.) – erstes Bild (Rückwärtskompatibilität)
+  photoUrls     String[]     @default([]) // T5: bis zu 6 Fotos je Aktivität
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 
