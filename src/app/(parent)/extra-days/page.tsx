@@ -1,277 +1,134 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
-import { Button } from '@/components/Button';
+import { useEffect, useState, useCallback } from 'react';
 
-interface Child {
-  id: string;
-  firstName: string;
-  lastName: string;
-}
+interface Child { id: string; firstName: string; lastName: string; }
+const PARTS = [{ k: 'VORMITTAG', l: 'Vormittag' }, { k: 'MITTAGESSEN', l: 'Mittagessen' }, { k: 'NACHMITTAG', l: 'Nachmittag' }];
+const partLabel = (p: string) => PARTS.find(x => x.k === p)?.l || p;
+const STATUS: Record<string, { l: string; cls: string }> = {
+  REQUESTED: { l: 'Angefragt', cls: 'chip-warning' },
+  APPROVED: { l: 'Bestätigt', cls: 'chip-success' },
+  REJECTED: { l: 'Abgelehnt', cls: 'chip-neutral' },
+  CANCELLED: { l: 'Storniert', cls: 'chip-neutral' },
+};
+const todayStr = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 
-interface ExtraDay {
-  id: string;
-  childId: string;
-  date: string;
-  status: string;
-  notes?: string;
-}
-
-export default function ExtraDaysPage() {
-  const { status } = useSession();
-  const router = useRouter();
+export default function ParentExtraDaysPage() {
   const [children, setChildren] = useState<Child[]>([]);
-  const [extraDays, setExtraDays] = useState<ExtraDay[]>([]);
-  const [selectedChildId, setSelectedChildId] = useState<string>('');
-  const [newDate, setNewDate] = useState('');
-  const [notes, setNotes] = useState('');
+  const [list, setList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
+  const [msg, setMsg] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const [childId, setChildId] = useState('');
+  const [date, setDate] = useState(todayStr());
+  const [parts, setParts] = useState<string[]>([]);
+  const [consent, setConsent] = useState(false);
+
+  const load = useCallback(async () => {
+    const res = await fetch('/api/extra-days');
+    if (res.ok) setList(await res.json());
+  }, []);
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/auth/login');
-      return;
-    }
+    (async () => {
+      const cRes = await fetch('/api/parent/children');
+      const cs = cRes.ok ? await cRes.json() : [];
+      setChildren(cs); if (cs[0]) setChildId(cs[0].id);
+      await load(); setLoading(false);
+    })();
+  }, [load]);
 
-    const fetchData = async () => {
-      try {
-        const childRes = await fetch('/api/parent/children');
-        const childData = await childRes.json();
-        setChildren(childData);
-        if (childData.length > 0) {
-          setSelectedChildId(childData[0].id);
-        }
+  const togglePart = (k: string) => setParts(p => p.includes(k) ? p.filter(x => x !== k) : [...p, k]);
 
-        const extraRes = await fetch('/api/extra-days');
-        const extraData = await extraRes.json();
-        setExtraDays(extraData || []);
-      } catch (error) {
-        console.error('Error fetching data:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (status === 'authenticated') {
-      fetchData();
-    }
-  }, [status, router]);
-
-  const handleAddExtraDay = async (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newDate || !selectedChildId) return;
-
-    setSubmitting(true);
+    if (!childId || parts.length === 0) { setMsg('❌ Bitte Kind und mindestens einen Tagesteil wählen.'); return; }
+    if (!consent) { setMsg('❌ Bitte die Bestätigung ankreuzen.'); return; }
+    setSaving(true); setMsg('');
     try {
       const res = await fetch('/api/extra-days', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          childId: selectedChildId,
-          date: new Date(newDate),
-          notes: notes || undefined,
-        }),
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ childId, date, parts }),
       });
-
-      if (res.ok) {
-        const newExtraDay = await res.json();
-        setExtraDays([...extraDays, newExtraDay]);
-        setNewDate('');
-        setNotes('');
-        alert('Zusatztag erfolgreich angefordert!');
-      } else {
-        alert('Fehler beim Hinzufügen des Zusatztags');
-      }
-    } catch (error) {
-      console.error('Error adding extra day:', error);
-      alert('Fehler beim Hinzufügen des Zusatztags');
-    } finally {
-      setSubmitting(false);
-    }
+      if (res.ok) { setMsg('✅ Zusatztag angefragt — die Kita prüft die Anfrage.'); setParts([]); setConsent(false); await load(); }
+      else { const d = await res.json().catch(() => ({})); setMsg(`❌ ${typeof d.error === 'string' ? d.error : 'Senden fehlgeschlagen'}`); }
+    } finally { setSaving(false); }
   };
 
-  const childExtraDays = extraDays.filter(e => e.childId === selectedChildId);
+  const remove = async (id: string) => {
+    if (!confirm('Zusatztag entfernen?')) return;
+    const res = await fetch(`/api/extra-days/${id}`, { method: 'DELETE' });
+    if (res.ok) await load();
+  };
 
-  if (loading) {
-    return (
-      <div className="max-w-5xl mx-auto py-16 text-center text-secondary-500">
-        Lädt…
-      </div>
-    );
-  }
+  if (loading) return <div className="text-center py-12 text-secondary-500">Lädt…</div>;
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="page-title">📅 Zusatztage buchen</h1>
-          <p className="page-subtitle">Einzelne Betreuungstage flexibel anfragen</p>
-        </div>
-        {children.length > 0 && (
-          <div className="w-full sm:w-auto sm:min-w-[16rem]">
-            <label className="eyebrow mb-1.5 block">Kind</label>
-            <select
-              value={selectedChildId}
-              onChange={e => setSelectedChildId(e.target.value)}
-              className="select"
-            >
-              {children.map(child => (
-                <option key={child.id} value={child.id}>
-                  {child.firstName} {child.lastName}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
+    <div className="space-y-6 max-w-2xl">
+      <div>
+        <h1 className="page-title">Zusatztage</h1>
+        <p className="page-subtitle">Zusätzlichen Betreuungstag anfragen.</p>
       </div>
 
-      {children.length > 0 ? (
-        <>
-          {/* KPI-Zeile */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="stat-card">
-              <p className="stat-value">{childExtraDays.length}</p>
-              <p className="stat-label">Angefragt</p>
-            </div>
-            <div className="stat-card">
-              <p className="stat-value">
-                {childExtraDays.filter(d => d.status === 'APPROVED').length}
-              </p>
-              <p className="stat-label">Genehmigt</p>
-            </div>
-            <div className="stat-card">
-              <p className="stat-value">
-                {childExtraDays.filter(d => d.status === 'REQUESTED').length}
-              </p>
-              <p className="stat-label">Offen</p>
-            </div>
-            <div className="stat-card">
-              <p className="stat-value">
-                {childExtraDays.filter(d => d.status === 'REJECTED').length}
-              </p>
-              <p className="stat-label">Abgelehnt</p>
-            </div>
+      {msg && <div className={`alert ${msg.startsWith('✅') ? 'alert-success' : 'alert-error'}`}>{msg}</div>}
+
+      <form onSubmit={submit} className="card p-6 space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div><label className="label label-required">Kind</label>
+            <select className="input" value={childId} onChange={e => setChildId(e.target.value)}>
+              {children.map(c => <option key={c.id} value={c.id}>{c.firstName} {c.lastName}</option>)}
+            </select>
           </div>
+          <div><label className="label label-required">Datum</label><input type="date" className="input" value={date} onChange={e => setDate(e.target.value)} required /></div>
+        </div>
 
-          {/* Buchungsformular */}
-          <form onSubmit={handleAddExtraDay} className="card p-6 sm:p-8 space-y-6">
-            {/* Held: Betreuungs-Optionen als Auswahlkacheln */}
-            <div>
-              <p className="eyebrow mb-3">Betreuungsumfang</p>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                <div className="tile tile-active">
-                  <span className="text-2xl">🌞</span>
-                  <span className="text-sm font-semibold text-secondary-900">Ganztags</span>
-                  <span className="text-xs text-secondary-500">mit Essen</span>
-                </div>
-                <div className="tile">
-                  <span className="text-2xl">🌅</span>
-                  <span className="text-sm font-semibold text-secondary-900">Vormittag</span>
-                  <span className="text-xs text-secondary-500">mit Essen</span>
-                </div>
-                <div className="tile">
-                  <span className="text-2xl">☕</span>
-                  <span className="text-sm font-semibold text-secondary-900">Vormittag</span>
-                  <span className="text-xs text-secondary-500">ohne Essen</span>
-                </div>
-                <div className="tile">
-                  <span className="text-2xl">🌇</span>
-                  <span className="text-sm font-semibold text-secondary-900">Nachmittag</span>
-                  <span className="text-xs text-secondary-500">mit Essen</span>
-                </div>
-                <div className="tile">
-                  <span className="text-2xl">🍵</span>
-                  <span className="text-sm font-semibold text-secondary-900">Nachmittag</span>
-                  <span className="text-xs text-secondary-500">ohne Essen</span>
-                </div>
-              </div>
-            </div>
+        <div>
+          <label className="label label-required">Tagesteile</label>
+          <div className="flex flex-wrap gap-2">
+            {PARTS.map(p => {
+              const active = parts.includes(p.k);
+              return (
+                <button key={p.k} type="button" onClick={() => togglePart(p.k)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium border transition ${active ? 'border-primary-600 bg-primary-50 text-primary-700 ring-2 ring-primary-200' : 'border-gray-200 bg-white text-secondary-500 hover:border-primary-300'}`}>
+                  {active ? '✓ ' : ''}{p.l}
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
-            {/* Datum + Notizen kompakt nebeneinander */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="label label-required">Datum</label>
-                <input
-                  type="date"
-                  value={newDate}
-                  onChange={e => setNewDate(e.target.value)}
-                  className="input"
-                  required
-                />
-              </div>
-              <div>
-                <label className="label">Notizen</label>
-                <textarea
-                  value={notes}
-                  onChange={e => setNotes(e.target.value)}
-                  className="textarea"
-                  rows={1}
-                  placeholder="Grund für den Zusatztag (optional)"
-                />
-              </div>
-            </div>
+        <label className="flex items-start gap-3 p-3 surface rounded-xl cursor-pointer">
+          <input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)} className="w-5 h-5 accent-primary-600 mt-0.5" />
+          <span className="text-sm text-secondary-700">Ich nehme diesen Zusatztag zur Kenntnis und bestätige die Anfrage.</span>
+        </label>
 
-            <div className="flex justify-end pt-1">
-              <Button type="submit" loading={submitting} className="btn btn-primary px-6">
-                Zusatztag anfordern
-              </Button>
-            </div>
-          </form>
+        <div className="flex justify-end">
+          <button type="submit" disabled={saving} className="btn btn-primary px-6">{saving ? 'Sendet…' : 'Zusatztag anfragen'}</button>
+        </div>
+      </form>
 
-          {/* Liste */}
-          <div className="space-y-3">
-            <p className="eyebrow">Deine Anfragen</p>
-            {childExtraDays.length === 0 ? (
-              <div className="empty-state">
-                <div className="empty-state-icon">🗓️</div>
-                <p className="text-secondary-500">Noch keine Zusatztage angefordert.</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {childExtraDays.map(day => (
-                  <div key={day.id} className="card p-4 flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="font-semibold text-secondary-900">
-                        {new Date(day.date).toLocaleDateString('de-DE', {
-                          weekday: 'short',
-                          day: '2-digit',
-                          month: '2-digit',
-                          year: 'numeric',
-                        })}
-                      </p>
-                      {day.notes && (
-                        <p className="text-sm text-secondary-500 mt-1 truncate-2">{day.notes}</p>
-                      )}
+      {list.length > 0 && (
+        <div className="card p-6">
+          <p className="eyebrow mb-3">Meine Zusatztage</p>
+          <div className="space-y-2">
+            {list.map(ed => {
+              const st = STATUS[ed.status] || STATUS.REQUESTED;
+              const pl = Array.isArray(ed.parts) ? ed.parts.map((p: string) => partLabel(p)).join(' + ') : '';
+              return (
+                <div key={ed.id} className="flex items-center justify-between gap-3 p-3 surface rounded-xl">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-medium text-secondary-900">{ed.child?.firstName} {ed.child?.lastName} · {new Date(ed.date).toLocaleDateString('de-CH')}</p>
+                      <span className={`chip ${st.cls}`}>{st.l}</span>
                     </div>
-                    <span
-                      className={`chip ${
-                        day.status === 'APPROVED'
-                          ? 'chip-success'
-                          : day.status === 'REJECTED'
-                            ? 'chip-error'
-                            : 'chip-warning'
-                      }`}
-                    >
-                      {day.status === 'REQUESTED'
-                        ? 'Angefordert'
-                        : day.status === 'APPROVED'
-                          ? 'Genehmigt'
-                          : 'Abgelehnt'}
-                    </span>
+                    {pl && <p className="text-xs text-secondary-500">{pl}</p>}
                   </div>
-                ))}
-              </div>
-            )}
+                  <button onClick={() => remove(ed.id)} className="btn-icon text-secondary-400 hover:bg-red-50 hover:text-red-600 shrink-0" title="Entfernen">🗑️</button>
+                </div>
+              );
+            })}
           </div>
-        </>
-      ) : (
-        <div className="empty-state">
-          <div className="empty-state-icon">👶</div>
-          <p className="text-secondary-500">Keine Kinder zugeordnet.</p>
         </div>
       )}
     </div>

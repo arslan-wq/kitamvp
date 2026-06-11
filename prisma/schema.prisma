@@ -649,9 +649,10 @@ model ExtraDay {
   kitaId          String
   kita            KiTA           @relation("KiTAExtraDays", fields: [kitaId], references: [id], onDelete: Cascade)
   date            DateTime
-  type            ExtraDayType   // Booked meal type
+  type            ExtraDayType   @default(FULL_DAY) // Legacy (Fallback)
+  parts           Json?          // T8: Tagesteile ["VORMITTAG","MITTAGESSEN","NACHMITTAG"]
   actualType      ExtraDayType?  // Override by staff at check-in if different from booked
-  status          String         @default("REQUESTED") // REQUESTED, APPROVED, CANCELLED
+  status          String         @default("REQUESTED") // REQUESTED, APPROVED, REJECTED, CANCELLED
   notes           String?
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt

@@ -21,6 +21,7 @@ interface Booking {
   dayType: string;
   dayParts?: Record<number, string[]> | null;
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  isExtraDay?: boolean;
   notes?: string;
   child: { id: string; firstName: string; lastName: string; locationId: string | null; photoUrl?: string | null; defaultPickupPerson?: string | null };
 }
@@ -40,6 +41,13 @@ export default function ScheduleView() {
   const [error, setError] = useState('');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
+  // T8: Personal legt Zusatztag an
+  const [children, setChildren] = useState<{ id: string; firstName: string; lastName: string; locationId?: string | null }[]>([]);
+  const [edOpen, setEdOpen] = useState(false);
+  const [edForm, setEdForm] = useState<{ locationId: string; childId: string; date: string; parts: string[] }>({ locationId: '', childId: '', date, parts: [] });
+  const [edSaving, setEdSaving] = useState(false);
+  const ED_PARTS = [{ k: 'VORMITTAG', l: 'Vormittag' }, { k: 'MITTAGESSEN', l: 'Mittagessen' }, { k: 'NACHMITTAG', l: 'Nachmittag' }];
+
   const fetchBookings = useCallback(async () => {
     const res = await fetch('/api/bookings');
     if (res.ok) setBookings(await res.json());
@@ -57,15 +65,44 @@ export default function ScheduleView() {
   }, []);
   const noticeByChild = (childId: string) => notices.find(n => n.childId === childId);
 
+  const [extraDays, setExtraDays] = useState<any[]>([]); // T8 Zusatztage
+  const fetchExtraDays = useCallback(async (d: string) => {
+    const res = await fetch(`/api/extra-days?date=${d}`);
+    if (res.ok) setExtraDays(await res.json());
+  }, []);
+  const reviewExtraDay = async (id: string, status: 'APPROVED' | 'REJECTED') => {
+    setActionLoading('ed' + id);
+    try {
+      const res = await fetch(`/api/extra-days/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) });
+      if (res.ok) await fetchExtraDays(date); else setError('Aktion fehlgeschlagen');
+    } finally { setActionLoading(null); }
+  };
+  const openExtraDay = () => { setEdForm({ locationId: locations[0]?.id || '', childId: '', date, parts: [] }); setEdOpen(true); };
+  const edChildren = children.filter(c => !edForm.locationId || (c.locationId || '') === edForm.locationId);
+  const submitExtraDay = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!edForm.childId || edForm.parts.length === 0) { setError('Bitte Kind und mindestens einen Tagesteil wählen.'); return; }
+    setEdSaving(true); setError('');
+    try {
+      const res = await fetch('/api/extra-days', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ childId: edForm.childId, date: edForm.date, parts: edForm.parts }) });
+      if (res.ok) { setEdOpen(false); await fetchExtraDays(date); }
+      else setError('Zusatztag konnte nicht angelegt werden');
+    } finally { setEdSaving(false); }
+  };
+
   useEffect(() => {
     (async () => {
       try {
-        const [, , locRes] = await Promise.all([
+        const [, , locRes, chRes] = await Promise.all([
           fetchBookings(),
           fetchAttendance(date),
           fetch('/api/locations'),
+          fetch('/api/children'),
         ]);
         if (locRes.ok) setLocations(await locRes.json());
+        if (chRes.ok) setChildren(await chRes.json());
+        fetchNotices(date);
+        fetchExtraDays(date);
       } catch {
         setError('Daten konnten nicht geladen werden');
       } finally {
@@ -78,7 +115,8 @@ export default function ScheduleView() {
   useEffect(() => {
     fetchAttendance(date);
     fetchNotices(date);
-  }, [date, fetchAttendance, fetchNotices]);
+    fetchExtraDays(date);
+  }, [date, fetchAttendance, fetchNotices, fetchExtraDays]);
 
   const review = async (id: string, status: 'APPROVED' | 'REJECTED' | 'PENDING') => {
     setActionLoading(id);
@@ -140,6 +178,16 @@ export default function ScheduleView() {
       if (!expectedMap.has(b.childId)) expectedMap.set(b.childId, b);
     }
   }
+  // T8: bestätigte Zusatztage des Tages als erwartete Kinder ergänzen
+  const extraRequests = extraDays.filter(e => e.status === 'REQUESTED');
+  for (const e of extraDays.filter(e => e.status === 'APPROVED')) {
+    if (expectedMap.has(e.childId)) continue;
+    expectedMap.set(e.childId, {
+      id: 'ed-' + e.id, childId: e.childId, startDate: e.date, endDate: e.date,
+      weekdays: [dow], dayType: 'FULL_DAY', dayParts: e.parts ? { [dow]: e.parts } : null,
+      status: 'APPROVED', child: e.child, isExtraDay: true,
+    } as any);
+  }
   const expected = Array.from(expectedMap.values());
 
   // Nach Standort gruppieren
@@ -180,6 +228,7 @@ export default function ScheduleView() {
         <div className="flex items-center gap-2">
           <label className="text-sm text-secondary-500 whitespace-nowrap">Tag:</label>
           <input type="date" value={date} onChange={e => setDate(e.target.value)} className="input max-w-[180px]" />
+          <button onClick={openExtraDay} className="btn btn-primary whitespace-nowrap" disabled={children.length === 0}>+ Zusatztag</button>
         </div>
       </div>
 
@@ -221,6 +270,32 @@ export default function ScheduleView() {
         </div>
       )}
 
+      {/* A2) Zusatztag-Anfragen (T8) */}
+      {extraRequests.length > 0 && (
+        <div className="card p-6">
+          <p className="eyebrow mb-3">⭐ Zusatztag-Anfragen — annehmen oder ablehnen</p>
+          <div className="space-y-2">
+            {extraRequests.map(e => (
+              <div key={e.id} className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 surface">
+                {avatarEl(e.child)}
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-secondary-900">{e.child.firstName} {e.child.lastName}</p>
+                  <p className="text-sm text-secondary-500">
+                    {new Date(e.date).toLocaleDateString('de-CH')}{Array.isArray(e.parts) && e.parts.length ? ` · ${e.parts.map((p: string) => ({ VORMITTAG: 'Vormittag', MITTAGESSEN: 'Mittagessen', NACHMITTAG: 'Nachmittag' } as any)[p] || p).join(' + ')}` : ''}
+                  </p>
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  <button onClick={() => reviewExtraDay(e.id, 'APPROVED')} disabled={actionLoading === 'ed' + e.id}
+                    className="btn btn-primary btn-sm">{actionLoading === 'ed' + e.id ? '⏳' : '✓ Annehmen'}</button>
+                  <button onClick={() => reviewExtraDay(e.id, 'REJECTED')} disabled={actionLoading === 'ed' + e.id}
+                    className="btn btn-secondary btn-sm text-red-700">✕ Ablehnen</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* B) Belegung pro Standort */}
       {expected.length === 0 ? (
         <div className="empty-state">
@@ -252,12 +327,15 @@ export default function ScheduleView() {
                     <div className="min-w-0 flex-1">
                       <p className="font-semibold text-secondary-900 truncate">{b.child.firstName} {b.child.lastName}</p>
                       <span className="chip chip-primary mt-0.5">{(b.dayParts && dayPartsLabel(b.dayParts, dow)) || DAY_TYPE_LABELS[b.dayType]}</span>
+                      {b.isExtraDay && <span className="chip chip-accent mt-0.5 ml-1">⭐ Zusatztag</span>}
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
-                      <button onClick={() => review(b.id, 'PENDING')}
-                        disabled={actionLoading === b.id}
-                        title="Annahme rückgängig machen"
-                        className="btn-icon w-7 h-7 text-secondary-400 hover:bg-yellow-50 hover:text-yellow-700">↩</button>
+                      {!b.isExtraDay && (
+                        <button onClick={() => review(b.id, 'PENDING')}
+                          disabled={actionLoading === b.id}
+                          title="Annahme rückgängig machen"
+                          className="btn-icon w-7 h-7 text-secondary-400 hover:bg-yellow-50 hover:text-yellow-700">↩</button>
+                      )}
                     </div>
                   </div>
                   {/* T9/T10: Eltern-Tagesmeldungen */}
@@ -352,6 +430,47 @@ export default function ScheduleView() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* T8: Zusatztag anlegen (Personal) */}
+      {edOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setEdOpen(false)}>
+          <form onClick={e => e.stopPropagation()} onSubmit={submitExtraDay} className="bg-white rounded-2xl w-full max-w-md p-6 space-y-4 shadow-elevated">
+            <h2 className="text-xl font-bold text-secondary-900">⭐ Zusatztag anlegen</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div><label className="label label-required">📍 Standort</label>
+                <select className="input" value={edForm.locationId} onChange={e => setEdForm(f => ({ ...f, locationId: e.target.value, childId: '' }))}>
+                  <option value="">Alle Standorte</option>
+                  {locations.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                </select>
+              </div>
+              <div><label className="label label-required">Datum</label><input type="date" className="input" value={edForm.date} onChange={e => setEdForm(f => ({ ...f, date: e.target.value }))} required /></div>
+            </div>
+            <div><label className="label label-required">Kind</label>
+              <select className="input" value={edForm.childId} onChange={e => setEdForm(f => ({ ...f, childId: e.target.value }))} required>
+                <option value="">— wählen —</option>
+                {edChildren.map(c => <option key={c.id} value={c.id}>{c.firstName} {c.lastName}</option>)}
+              </select>
+            </div>
+            <div><label className="label label-required">Tagesteile</label>
+              <div className="flex flex-wrap gap-2">
+                {ED_PARTS.map(p => {
+                  const active = edForm.parts.includes(p.k);
+                  return (
+                    <button key={p.k} type="button" onClick={() => setEdForm(f => ({ ...f, parts: active ? f.parts.filter(x => x !== p.k) : [...f.parts, p.k] }))}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium border transition ${active ? 'border-primary-600 bg-primary-50 text-primary-700 ring-2 ring-primary-200' : 'border-gray-200 bg-white text-secondary-500 hover:border-primary-300'}`}>
+                      {active ? '✓ ' : ''}{p.l}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 pt-2">
+              <button type="button" onClick={() => setEdOpen(false)} className="btn btn-secondary">Abbrechen</button>
+              <button type="submit" disabled={edSaving} className="btn btn-primary px-6">{edSaving ? 'Speichert…' : 'Zusatztag anlegen'}</button>
+            </div>
+          </form>
         </div>
       )}
     </div>

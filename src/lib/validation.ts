@@ -127,7 +127,8 @@ export const updateLocationSchema = createLocationSchema.partial();
 export const createExtraDaySchema = z.object({
   childId: z.string().min(1, 'Kind ist erforderlich'),
   date: z.date().or(z.string().pipe(z.coerce.date())),
-  type: z.enum(['FULL_DAY', 'MORNING_WITH_MEAL', 'MORNING_NO_MEAL', 'AFTERNOON_WITH_MEAL', 'AFTERNOON_NO_MEAL']),
+  type: z.enum(['FULL_DAY', 'MORNING_WITH_MEAL', 'MORNING_NO_MEAL', 'AFTERNOON_WITH_MEAL', 'AFTERNOON_NO_MEAL']).optional().default('FULL_DAY'),
+  parts: z.array(z.string()).optional(), // T8: Tagesteile
   notes: z.string().optional(),
 });
 
