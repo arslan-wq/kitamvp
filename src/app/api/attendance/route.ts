@@ -30,7 +30,8 @@ export async function GET(request: NextRequest) {
       },
     },
     include: {
-      child: true,
+      // Perf: nur Namen statt voller Kindzeile (kein base64-Foto im Payload)
+      child: { select: { id: true, firstName: true, lastName: true } },
     },
     orderBy: { child: { firstName: 'asc' } },
   });

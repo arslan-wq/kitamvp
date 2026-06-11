@@ -4,14 +4,23 @@ import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 
-export default function ChildrenList() {
+export default function ChildrenList({
+  initialChildren,
+  initialLocations,
+  initialAttendance,
+}: {
+  initialChildren?: any[];
+  initialLocations?: any[];
+  initialAttendance?: any[];
+} = {}) {
   const { data: session } = useSession();
   const isAdmin = (session?.user as any)?.role === 'ADMIN';
 
-  const [children, setChildren] = useState<any[]>([]);
-  const [locations, setLocations] = useState<any[]>([]);
-  const [attendance, setAttendance] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const hasInitial = Array.isArray(initialChildren);
+  const [children, setChildren] = useState<any[]>(initialChildren || []);
+  const [locations, setLocations] = useState<any[]>(initialLocations || []);
+  const [attendance, setAttendance] = useState<any[]>(initialAttendance || []);
+  const [loading, setLoading] = useState(!hasInitial); // SSR: kein Lade-Flash
   const [error, setError] = useState('');
 
   const [search, setSearch] = useState('');
@@ -19,6 +28,7 @@ export default function ChildrenList() {
   const [presenceFilter, setPresenceFilter] = useState('all'); // all | present | absent
 
   useEffect(() => {
+    if (hasInitial) return; // SSR-Prefetch vorhanden → kein Initial-Fetch
     const today = new Date().toISOString().slice(0, 10);
     (async () => {
       try {
@@ -37,6 +47,7 @@ export default function ChildrenList() {
         setLoading(false);
       }
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const isPresent = (childId: string) =>

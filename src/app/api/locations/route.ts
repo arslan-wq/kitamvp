@@ -21,8 +21,10 @@ export async function GET(_request: Request) {
     const locations = await prisma.location.findMany({
       where: { kitaId: user.kitaId! },
       include: {
-        users: true,
-        children: true,
+        // Perf + Datenschutz: kein Passwort-Hash/Foto im Personal-Objekt;
+        // Kinder nur mit den auf der Standort-Seite genutzten Feldern.
+        users: { select: { id: true, name: true, email: true, role: true, workingHours: true, locationId: true } },
+        children: { select: { id: true, firstName: true, lastName: true, photoUrl: true, locationId: true } },
       },
       orderBy: { name: 'asc' },
     });
