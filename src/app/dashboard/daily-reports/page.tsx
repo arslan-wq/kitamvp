@@ -3,6 +3,7 @@ import { authOptions } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import DailyReportsTimeline from './components/DailyReportsTimeline';
+import ExtraDayExport from './components/ExtraDayExport';
 
 export const metadata = {
   title: 'Tagesberichte – KitaLuna',
@@ -34,6 +35,8 @@ export default async function DailyReportsPage() {
         <h1 className="page-title">Tagesberichte</h1>
         <p className="page-subtitle">Zeitachse aller Berichte – filterbar, druckbar als PDF</p>
       </div>
+      {/* T14: Zusatztage-Export — nur Admin/Leitung */}
+      {['ADMIN', 'KITA_LEITER'].includes(session.user.role) && <ExtraDayExport />}
       <DailyReportsTimeline childrenList={children} locations={locations} />
     </div>
   );
