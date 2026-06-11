@@ -13,9 +13,15 @@ export async function GET(_request: NextRequest) {
 
   try {
     const kitaId = (session.user as any).kitaId;
+    // Perf + Datenschutz: keine vollständigen Elternzeilen (Passwort-Hash,
+    // base64-Foto) und nur die tatsächlich genutzten Relationsfelder laden.
     const children = await prisma.child.findMany({
       where: { kitaId },
-      include: { parents: true, location: true, allergies: true },
+      include: {
+        location: { select: { id: true, name: true } },
+        allergies: { select: { id: true, allergen: true, severity: true } },
+        parents: { select: { id: true, firstName: true, lastName: true, email: true, phone: true } },
+      },
       orderBy: [{ firstName: 'asc' }],
     });
     return NextResponse.json(children);
