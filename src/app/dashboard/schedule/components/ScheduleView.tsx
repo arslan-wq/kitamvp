@@ -181,7 +181,12 @@ export default function ScheduleView() {
   // T8: bestätigte Zusatztage des Tages als erwartete Kinder ergänzen
   const extraRequests = extraDays.filter(e => e.status === 'REQUESTED');
   for (const e of extraDays.filter(e => e.status === 'APPROVED')) {
-    if (expectedMap.has(e.childId)) continue;
+    const existing = expectedMap.get(e.childId);
+    if (existing) {
+      // T2-Fix: bereits via Buchung erwartet → trotzdem als Zusatztag markieren (Stern)
+      (existing as any).isExtraDay = true;
+      continue;
+    }
     expectedMap.set(e.childId, {
       id: 'ed-' + e.id, childId: e.childId, startDate: e.date, endDate: e.date,
       weekdays: [dow], dayType: 'FULL_DAY', dayParts: e.parts ? { [dow]: e.parts } : null,

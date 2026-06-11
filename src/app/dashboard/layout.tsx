@@ -17,7 +17,7 @@ export default function DashboardLayout({
   // Filter navigation items based on role
   const getNavItems = () => {
     const allItems = [
-      { label: '📋 Tagesbericht', href: '/dashboard/daily-reports' },
+      { label: '📋 Berichte', href: '/dashboard/daily-reports' },
       { label: '📊 Aktivitäten', href: '/dashboard/activities' },
       { label: '👶 Kinder', href: '/dashboard/children' },
       { label: '📅 Belegungsplanung', href: '/dashboard/schedule' },

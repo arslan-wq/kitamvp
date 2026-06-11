@@ -22,6 +22,21 @@ export async function POST(request: NextRequest) {
   if (!access.child) return NextResponse.json({ error: 'Kind nicht gefunden' }, { status: 404 });
   if (!access.allowed) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
+  // T2: Konflikt-Prüfung — ist das Kind an diesem Tag bereits gebucht?
+  const d0 = dayStart(data.date);
+  const dow = d0.getDay();
+  const [existingBooking, existingExtra] = await Promise.all([
+    prisma.booking.findFirst({
+      where: { childId: data.childId, status: 'APPROVED', startDate: { lte: d0 }, endDate: { gte: d0 }, weekdays: { has: dow } },
+    }),
+    prisma.extraDay.findFirst({
+      where: { childId: data.childId, date: d0, status: { in: ['REQUESTED', 'APPROVED'] } },
+    }),
+  ]);
+  if (existingBooking || existingExtra) {
+    return NextResponse.json({ error: 'Da ist Ihr Kind an diesem Tag bereits gebucht.', code: 'ALREADY_BOOKED' }, { status: 409 });
+  }
+
   const isStaff = access.isStaff && !access.isParent;
   const status = isStaff ? 'APPROVED' : 'REQUESTED';
 
