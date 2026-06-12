@@ -11,7 +11,7 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Filter navigation items based on role
@@ -45,7 +45,11 @@ export default function DashboardLayout({
 
   const navItems = getNavItems();
 
-  if (!session) {
+  // Nur bei BESTÄTIGT nicht-authentifiziert blocken. Während `loading`
+  // (Server-Render & erster Client-Tick) den Inhalt rendern — die Seiten
+  // sind server-seitig per getServerSession geschützt. Das ermöglicht echtes
+  // SSR der Seiten und vermeidet das „Zugriff erforderlich"-Flackern.
+  if (status === 'unauthenticated') {
     return (
       <div className="min-h-screen flex items-center justify-center px-4">
         <div className="empty-state max-w-md w-full">
@@ -69,7 +73,7 @@ export default function DashboardLayout({
             {/* Links: auf Mobile Profil + Glocke ganz links, dann Logo */}
             <div className="flex items-center gap-1.5 min-w-0">
               <div className="flex items-center gap-1 lg:hidden shrink-0">
-                <HeaderProfile href="/dashboard/profil" fallback={(session.user?.name || session.user?.email || '?').charAt(0).toUpperCase()} />
+                <HeaderProfile href="/dashboard/profil" fallback={(session?.user?.name || session?.user?.email || '?').charAt(0).toUpperCase()} />
                 <NotificationBell />
               </div>
               <Link href="/dashboard" className="flex items-center hover:opacity-80 transition shrink-0">
@@ -111,9 +115,9 @@ export default function DashboardLayout({
             <div className="flex items-center gap-2 sm:gap-3 shrink-0">
               <div className="hidden lg:flex items-center gap-3">
                 <NotificationBell />
-                <HeaderProfile href="/dashboard/profil" fallback={(session.user?.name || session.user?.email || '?').charAt(0).toUpperCase()} />
+                <HeaderProfile href="/dashboard/profil" fallback={(session?.user?.name || session?.user?.email || '?').charAt(0).toUpperCase()} />
                 <span className="chip chip-neutral max-w-[10rem]">
-                  <span className="truncate-1">{session.user?.email}</span>
+                  <span className="truncate-1">{session?.user?.email}</span>
                 </span>
                 <button onClick={() => signOut({ callbackUrl: '/' })} className="btn btn-secondary btn-sm">Abmelden</button>
               </div>

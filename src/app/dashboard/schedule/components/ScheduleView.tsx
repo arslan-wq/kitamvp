@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { dayPartsLabel } from '@/components/WeekdayPartsPicker';
 import BookingCalendar, { type DayMark, expandBookingDays } from '@/components/BookingCalendar';
 import DayBookingModal from '@/components/DayBookingModal';
@@ -34,17 +34,28 @@ interface Location {
   capacity: number;
 }
 
-export default function ScheduleView() {
+interface ScheduleInitial {
+  bookings?: Booking[];
+  locations?: Location[];
+  children?: { id: string; firstName: string; lastName: string; locationId?: string | null }[];
+  attendance?: any[];
+  notices?: any[];
+  extraDays?: any[];
+  calExtra?: any[];
+}
+
+export default function ScheduleView({ initial }: { initial?: ScheduleInitial } = {}) {
+  const hasInitial = !!initial && Array.isArray(initial.bookings);
   const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
-  const [bookings, setBookings] = useState<Booking[]>([]);
-  const [locations, setLocations] = useState<Location[]>([]);
-  const [attendance, setAttendance] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [bookings, setBookings] = useState<Booking[]>(initial?.bookings || []);
+  const [locations, setLocations] = useState<Location[]>(initial?.locations || []);
+  const [attendance, setAttendance] = useState<any[]>(initial?.attendance || []);
+  const [loading, setLoading] = useState(!hasInitial); // SSR: kein Lade-Flash
   const [error, setError] = useState('');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   // T8: Personal legt Zusatztag an
-  const [children, setChildren] = useState<{ id: string; firstName: string; lastName: string; locationId?: string | null }[]>([]);
+  const [children, setChildren] = useState<{ id: string; firstName: string; lastName: string; locationId?: string | null }[]>(initial?.children || []);
   const [edOpen, setEdOpen] = useState(false);
   const [edForm, setEdForm] = useState<{ locationId: string; childId: string; date: string; parts: string[] }>({ locationId: '', childId: '', date, parts: [] });
   const [edSaving, setEdSaving] = useState(false);
@@ -65,21 +76,21 @@ export default function ScheduleView() {
     if (res.ok) setAttendance(await res.json());
   }, []);
 
-  const [notices, setNotices] = useState<any[]>([]); // T9/T10 Tagesmeldungen
+  const [notices, setNotices] = useState<any[]>(initial?.notices || []); // T9/T10 Tagesmeldungen
   const fetchNotices = useCallback(async (d: string) => {
     const res = await fetch(`/api/day-notices?date=${d}`);
     if (res.ok) setNotices(await res.json());
   }, []);
   const noticeByChild = (childId: string) => notices.find(n => n.childId === childId);
 
-  const [extraDays, setExtraDays] = useState<any[]>([]); // T8 Zusatztage (gewählter Tag)
+  const [extraDays, setExtraDays] = useState<any[]>(initial?.extraDays || []); // T8 Zusatztage (gewählter Tag)
   const fetchExtraDays = useCallback(async (d: string) => {
     const res = await fetch(`/api/extra-days?date=${d}`);
     if (res.ok) setExtraDays(await res.json());
   }, []);
 
   // T3: alle Zusatztage für die Kalender-Markierungen
-  const [calExtra, setCalExtra] = useState<any[]>([]);
+  const [calExtra, setCalExtra] = useState<any[]>(initial?.calExtra || []);
   const fetchCalExtra = useCallback(async () => {
     const res = await fetch('/api/extra-days');
     if (res.ok) { const d = await res.json(); setCalExtra(Array.isArray(d) ? d : []); }
@@ -105,6 +116,7 @@ export default function ScheduleView() {
   };
 
   useEffect(() => {
+    if (hasInitial) return; // SSR-Prefetch vorhanden → kein Initial-Fetch
     (async () => {
       try {
         const [, , locRes, chRes] = await Promise.all([
@@ -127,7 +139,11 @@ export default function ScheduleView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Datum-Wechsel lädt tagesabhängige Daten neu. Beim ersten Render mit
+  // SSR-Daten (= heute) überspringen, um Doppel-Fetch/Flash zu vermeiden.
+  const skipFirstDateFetch = useRef(hasInitial);
   useEffect(() => {
+    if (skipFirstDateFetch.current) { skipFirstDateFetch.current = false; return; }
     fetchAttendance(date);
     fetchNotices(date);
     fetchExtraDays(date);
