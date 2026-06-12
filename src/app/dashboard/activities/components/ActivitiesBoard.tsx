@@ -41,9 +41,10 @@ const meta = (t: string) => TYPES.find(x => x.id === t) || { name: t, icon: '•
 const initials = (a: string, b: string) => `${(a || '?').charAt(0)}${(b || '').charAt(0)}`.toUpperCase();
 const time = (s: string) => new Date(s).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' });
 
-export default function ActivitiesBoard({ childrenList, locations }: { childrenList: ChildLite[]; locations: LocationLite[]; }) {
-  const [activities, setActivities] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+export default function ActivitiesBoard({ childrenList, locations, initialActivities }: { childrenList: ChildLite[]; locations: LocationLite[]; initialActivities?: any[]; }) {
+  const hasInitial = Array.isArray(initialActivities);
+  const [activities, setActivities] = useState<any[]>(initialActivities || []);
+  const [loading, setLoading] = useState(!hasInitial); // SSR: kein Lade-Flash
   const [error, setError] = useState('');
   const [view, setView] = useState<'kanban' | 'timeline'>('kanban');
 
@@ -104,7 +105,13 @@ export default function ActivitiesBoard({ childrenList, locations }: { childrenL
     if (res.ok) setActivities(await res.json()); else setError('Aktivitäten konnten nicht geladen werden');
     setLoading(false);
   };
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [from, to]);
+  // SSR-Prefetch (ohne Filter) vorhanden → ersten load() überspringen,
+  // bei Filter-Wechsel (from/to) aber normal neu laden.
+  const skipFirstLoad = useRef(hasInitial);
+  useEffect(() => {
+    if (skipFirstLoad.current) { skipFirstLoad.current = false; return; }
+    load(); /* eslint-disable-next-line */
+  }, [from, to]);
 
   // T6: Standort zuerst, dann mehrere Kinder
   const openModal = () => {
