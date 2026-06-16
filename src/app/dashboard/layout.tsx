@@ -23,15 +23,15 @@ export default function DashboardLayout({
       { label: '📅 Belegungsplanung', href: '/dashboard/schedule' },
       { label: '💬 Pinnwand', href: '/dashboard/messaging' },
       { label: '🏥 Medizinische Info', href: '/dashboard/medical-records' },
+      { label: '🍽️ Menüplan', href: '/dashboard/meal-plans' },
       { label: '📍 Standorte', href: '/dashboard/locations' },
       { label: '📞 Kita Kontakt', href: '/dashboard/kontakt' },
       { label: '🖼️ Fotos & Dokumente', href: '/dashboard/documents' },
     ];
 
     const role = (session?.user as any)?.role;
-    // Menüplan & Benutzerverwaltung für Admin & Leitung
+    // Benutzerverwaltung nur für Admin & Leitung (Menüplan sehen alle, s. oben)
     if (role === 'ADMIN' || role === 'KITA_LEITER') {
-      allItems.push({ label: '🍽️ Menüplan', href: '/dashboard/meal-plans' });
       allItems.push({ label: '👥 Benutzer', href: '/dashboard/users' });
     }
     // Nur Admin: Verträge & Abrechnung
@@ -71,8 +71,8 @@ export default function DashboardLayout({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16 gap-2">
             {/* Links: auf Mobile Profil + Glocke ganz links, dann Logo */}
-            <div className="flex items-center gap-1.5 min-w-0">
-              <div className="flex items-center gap-1 lg:hidden shrink-0">
+            <div className="flex items-center gap-1.5 min-w-0 shrink-0">
+              <div className="flex items-center gap-1 xl:hidden shrink-0">
                 <HeaderProfile href="/dashboard/profil" fallback={(session?.user?.name || session?.user?.email || '?').charAt(0).toUpperCase()} />
                 <NotificationBell />
               </div>
@@ -82,9 +82,9 @@ export default function DashboardLayout({
               </Link>
             </div>
 
-            {/* Desktop Navigation */}
-            <nav className="hidden lg:flex items-center gap-0.5">
-              {navItems.slice(0, 5).map((item) => (
+            {/* Desktop Navigation (ab xl; darunter Burger-Menü) */}
+            <nav className="hidden xl:flex items-center gap-0.5 min-w-0 shrink">
+              {navItems.slice(0, 4).map((item) => (
                 <Link
                   key={item.href}
                   href={item.href}
@@ -98,7 +98,7 @@ export default function DashboardLayout({
                   Mehr ▾
                 </button>
                 <div className="absolute right-0 mt-1 w-56 card p-1.5 hidden group-hover:block z-50">
-                  {navItems.slice(5).map((item) => (
+                  {navItems.slice(4).map((item) => (
                     <Link
                       key={item.href}
                       href={item.href}
@@ -113,17 +113,17 @@ export default function DashboardLayout({
 
             {/* Rechts: Desktop Glocke+Profil+Abmelden, Mobile Burger */}
             <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-              <div className="hidden lg:flex items-center gap-3">
+              <div className="hidden xl:flex items-center gap-3">
                 <NotificationBell />
                 <HeaderProfile href="/dashboard/profil" fallback={(session?.user?.name || session?.user?.email || '?').charAt(0).toUpperCase()} />
-                <span className="chip chip-neutral max-w-[10rem]">
+                <span className="chip chip-neutral max-w-[10rem] hidden 2xl:inline-flex">
                   <span className="truncate-1">{session?.user?.email}</span>
                 </span>
                 <button onClick={() => signOut({ callbackUrl: '/' })} className="btn btn-secondary btn-sm">Abmelden</button>
               </div>
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="btn-icon lg:hidden text-secondary-600 hover:bg-secondary-100"
+                className="btn-icon xl:hidden text-secondary-600 hover:bg-secondary-100"
                 aria-label="Menü"
               >
                 ☰
@@ -133,7 +133,7 @@ export default function DashboardLayout({
 
           {/* Mobile Navigation */}
           {mobileMenuOpen && (
-            <div className="lg:hidden pb-4 pt-2 border-t border-gray-100">
+            <div className="xl:hidden pb-4 pt-2 border-t border-gray-100">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
                 {navItems.map((item) => (
                   <Link

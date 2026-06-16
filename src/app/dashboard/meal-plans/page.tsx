@@ -15,30 +15,23 @@ export default async function MealPlansPage() {
     redirect('/auth/login');
   }
 
-  // Only ADMIN and KITA_LEITER can access
-  if (!['ADMIN', 'KITA_LEITER'].includes(session.user.role)) {
-    return (
-      <div className="alert alert-error">
-        <div>
-          <h1 className="text-lg font-semibold mb-1">Zugriff verweigert</h1>
-          <p>Nur Kita-Leiter und Administratoren können Speisepläne verwalten.</p>
-        </div>
-      </div>
-    );
-  }
+  // Alle Mitarbeitenden sehen den Menüplan; nur ADMIN/Leitung dürfen bearbeiten.
+  const canEdit = ['ADMIN', 'KITA_LEITER'].includes(session.user.role);
 
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="page-title">🍽️ Speiseplan-Verwaltung</h1>
+          <h1 className="page-title">🍽️ Menüplan</h1>
           <p className="page-subtitle">
-            Wöchentlichen Speiseplan erfassen. Eltern sehen relevante Allergie-Informationen.
+            {canEdit
+              ? 'Wöchentlichen Speiseplan erfassen. Eltern sehen relevante Allergie-Informationen.'
+              : 'Wöchentlicher Speiseplan – nur ansehen und als PDF herunterladen.'}
           </p>
         </div>
       </div>
 
-      <MealPlanManager kitaId={session.user.kitaId} />
+      <MealPlanManager kitaId={session.user.kitaId} canEdit={canEdit} />
     </div>
   );
 }

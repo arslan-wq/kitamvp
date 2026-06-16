@@ -184,8 +184,14 @@ export default function DailyReportsTimeline({ childrenList, locations }: { chil
             {locations.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
             <option value="none">Ohne Standort</option>
           </select>
-          <input type="date" className="input max-w-[10rem]" value={from} onChange={e => setFrom(e.target.value)} title="Von" />
-          <input type="date" className="input max-w-[10rem]" value={to} onChange={e => setTo(e.target.value)} title="Bis" />
+          <div className="flex items-end gap-2 shrink-0">
+            <label className="flex flex-col text-xs text-secondary-500">Von
+              <input type="date" className="input max-w-[9.5rem]" value={from} onChange={e => setFrom(e.target.value)} />
+            </label>
+            <label className="flex flex-col text-xs text-secondary-500">Bis
+              <input type="date" className="input max-w-[9.5rem]" value={to} onChange={e => setTo(e.target.value)} />
+            </label>
+          </div>
         </div>
         <button onClick={openModal} className="btn btn-primary">+ Bericht anlegen</button>
       </div>
