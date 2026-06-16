@@ -2,6 +2,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import crypto from 'crypto';
 
 const MAX_LEN = 700_000; // ~500 KB Bild als Data-URL
 
@@ -23,6 +24,32 @@ function validatePhoto(photoUrl: any): string | null | undefined | { error: stri
   }
   if (photoUrl.length > MAX_LEN) return { error: 'Bild zu groß (max. ~500 KB)', status: 413 };
   return photoUrl;
+}
+
+// POST /api/users/[id] — frischen "Passwort setzen / Einladung"-Link erzeugen.
+// Gibt die URL zurück (zum Kopieren), falls die E-Mail nicht ankommt.
+// body.type: 'staff' | 'parent'. Mandantengescoped, nur Leitung/Admin.
+export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+  const auth = await requireManager();
+  if ('error' in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
+  const kitaId = auth.user.kitaId!;
+  const body = await request.json().catch(() => ({}));
+
+  const token = crypto.randomBytes(32).toString('hex');
+  const expiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
+
+  if (body.type === 'parent') {
+    const parent = await prisma.parent.findFirst({ where: { id: params.id, children: { some: { kitaId } } } });
+    if (!parent) return NextResponse.json({ error: 'Nicht gefunden' }, { status: 404 });
+    await prisma.parent.update({ where: { id: params.id }, data: { resetToken: token, resetTokenExpiry: expiry } });
+  } else {
+    const target = await prisma.user.findFirst({ where: { id: params.id, kitaId } });
+    if (!target) return NextResponse.json({ error: 'Nicht gefunden' }, { status: 404 });
+    await prisma.user.update({ where: { id: params.id }, data: { resetToken: token, resetTokenExpiry: expiry } });
+  }
+
+  const base = process.env.NEXT_PUBLIC_APP_URL || '';
+  return NextResponse.json({ url: `${base}/auth/reset-password?token=${token}`, expiresAt: expiry });
 }
 
 // PATCH /api/users/[id] — Personal oder Eltern bearbeiten (NICHT Passwort).

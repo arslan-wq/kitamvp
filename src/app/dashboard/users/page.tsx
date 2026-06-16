@@ -64,6 +64,7 @@ export default function UsersPage() {
   const [submitting, setSubmitting] = useState(false);
   const [msg, setMsg] = useState('');
   const [busyReset, setBusyReset] = useState<string | null>(null);
+  const [busyLink, setBusyLink] = useState<string | null>(null);
 
   const [form, setForm] = useState<any>({ type: 'staff', email: '', name: '', role: 'BETREUER', locationId: '', firstName: '', lastName: '', phone: '', photoUrl: null });
 
@@ -105,8 +106,29 @@ export default function UsersPage() {
     setBusyReset(email); setMsg('');
     try {
       const res = await fetch('/api/auth/forgot-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
-      setMsg(res.ok ? `✅ Passwort-Reset-Mail an ${email} gesendet.` : '❌ Konnte Reset-Mail nicht senden.');
+      setMsg(res.ok ? `✅ Einladungs-/Passwort-Mail an ${email} gesendet.` : '❌ Konnte Mail nicht senden.');
     } finally { setBusyReset(null); }
+  };
+
+  // „Link kopieren": frischen Set-Passwort-Link erzeugen + in Zwischenablage —
+  // Fallback, falls die E-Mail nicht ankommt (Admin schickt ihn dann selbst).
+  const copyInviteLink = async (p: any) => {
+    setBusyLink(p.id); setMsg('');
+    try {
+      const res = await fetch(`/api/users/${p.id}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: tab }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok || !d.url) { setMsg(`❌ ${d.error || 'Link konnte nicht erzeugt werden.'}`); return; }
+      try {
+        await navigator.clipboard.writeText(d.url);
+        setMsg(`✅ Einladungs-Link kopiert (24 h gültig) — an ${p.email} weiterleiten.`);
+      } catch {
+        // Clipboard-API nicht verfügbar → Link im Hinweis anzeigen
+        setMsg(`✅ Einladungs-Link (24 h gültig): ${d.url}`);
+      }
+    } finally { setBusyLink(null); }
   };
 
   const archiveParent = async (p: any, archive: boolean) => {
@@ -271,8 +293,13 @@ export default function UsersPage() {
               <div className="flex flex-col gap-1.5 shrink-0">
                 {!archived && <button onClick={() => openEdit(p)} className="btn btn-secondary btn-sm" title="Bearbeiten">✏️ Bearbeiten</button>}
                 {!archived && (
-                  <button onClick={() => sendReset(p.email)} disabled={busyReset === p.email} className="btn btn-secondary btn-sm" title="Passwort-Reset-Mail senden">
-                    {busyReset === p.email ? '…' : '🔑 Reset'}
+                  <button onClick={() => sendReset(p.email)} disabled={busyReset === p.email} className="btn btn-secondary btn-sm" title="Einladungs-/Passwort-Mail senden">
+                    {busyReset === p.email ? '…' : '✉️ Einladung'}
+                  </button>
+                )}
+                {!archived && (
+                  <button onClick={() => copyInviteLink(p)} disabled={busyLink === p.id} className="btn btn-secondary btn-sm" title="Einladungs-Link kopieren (Fallback, falls die E-Mail nicht ankommt)">
+                    {busyLink === p.id ? '…' : '🔗 Link'}
                   </button>
                 )}
                 {tab === 'parent' && !archived && (

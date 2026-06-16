@@ -85,13 +85,15 @@ export async function POST(request: Request) {
 
   const tempPw = await bcrypt.hash(crypto.randomBytes(12).toString('hex'), 10);
 
-  // Profilfoto validieren (Pflicht beim Anlegen)
-  const photoUrl = body.photoUrl;
-  if (!photoUrl || typeof photoUrl !== 'string' || !photoUrl.startsWith('data:image/')) {
-    return NextResponse.json({ error: 'Profilfoto ist erforderlich' }, { status: 400 });
-  }
-  if (photoUrl.length > 700_000) {
-    return NextResponse.json({ error: 'Bild zu groß (max. ~500 KB)' }, { status: 413 });
+  // Profilfoto ist optional. Wenn eines mitgegeben wird, Format/Größe prüfen.
+  const photoUrl = body.photoUrl || null;
+  if (photoUrl !== null) {
+    if (typeof photoUrl !== 'string' || !photoUrl.startsWith('data:image/')) {
+      return NextResponse.json({ error: 'Nur Bilddateien erlaubt' }, { status: 400 });
+    }
+    if (photoUrl.length > 700_000) {
+      return NextResponse.json({ error: 'Bild zu groß (max. ~500 KB)' }, { status: 413 });
+    }
   }
 
   if (type === 'staff') {
