@@ -42,8 +42,8 @@ export default async function ParentLayout({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16 gap-2">
             {/* Links: auf Mobile Profil + Glocke ganz links, dann Logo */}
-            <div className="flex items-center gap-1.5 min-w-0">
-              <div className="flex items-center gap-1 lg:hidden shrink-0">
+            <div className="flex items-center gap-1.5 min-w-0 shrink-0">
+              <div className="flex items-center gap-1 xl:hidden shrink-0">
                 <HeaderProfile href="/profil" fallback={(session.user?.name || '?').charAt(0).toUpperCase()} />
                 <NotificationBell />
               </div>
@@ -53,9 +53,9 @@ export default async function ParentLayout({
               </Link>
             </div>
 
-            {/* Desktop Navigation */}
-            <nav className="hidden lg:flex items-center gap-0.5">
-              {navItems.map((item) => (
+            {/* Desktop Navigation (ab xl; darunter Burger-Menü) */}
+            <nav className="hidden xl:flex items-center gap-0.5 min-w-0 shrink">
+              {navItems.slice(0, 5).map((item) => (
                 <Link
                   key={item.href}
                   href={item.href}
@@ -64,14 +64,28 @@ export default async function ParentLayout({
                   {item.label}
                 </Link>
               ))}
+              <div className="relative group">
+                <button className="px-3 py-2 text-sm font-medium text-secondary-600 hover:text-primary-700 hover:bg-primary-50 rounded-lg transition-smooth">Mehr ▾</button>
+                <div className="absolute right-0 mt-1 w-56 card p-1.5 hidden group-hover:block z-50">
+                  {navItems.slice(5).map((item) => (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className="block px-3 py-2 text-sm font-medium text-secondary-600 hover:text-primary-700 hover:bg-primary-50 rounded-lg transition-smooth"
+                    >
+                      {item.label}
+                    </Link>
+                  ))}
+                </div>
+              </div>
             </nav>
 
             {/* Rechts: Desktop Glocke+Profil+Abmelden, Mobile Burger */}
             <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-              <div className="hidden lg:flex items-center gap-3">
+              <div className="hidden xl:flex items-center gap-3">
                 <NotificationBell />
                 <HeaderProfile href="/profil" fallback={(session.user?.name || '?').charAt(0).toUpperCase()} />
-                <span className="chip chip-neutral max-w-[10rem]">
+                <span className="chip chip-neutral max-w-[10rem] hidden 2xl:inline-flex">
                   <span className="truncate-1">{session.user?.name}</span>
                 </span>
                 <a href="/api/auth/signout" className="btn btn-secondary btn-sm">Abmelden</a>

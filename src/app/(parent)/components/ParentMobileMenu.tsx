@@ -9,7 +9,7 @@ interface NavItem { label: string; href: string; }
 export default function ParentMobileMenu({ navItems }: { navItems: NavItem[] }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="lg:hidden">
+    <div className="xl:hidden">
       <button
         onClick={() => setOpen(o => !o)}
         className="btn-icon text-secondary-600 hover:bg-secondary-100"
