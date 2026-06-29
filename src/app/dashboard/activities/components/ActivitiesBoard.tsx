@@ -63,6 +63,14 @@ export default function ActivitiesBoard({ childrenList, locations, initialActivi
   const camRef = useRef<HTMLInputElement>(null);
   const [photoWarn, setPhotoWarn] = useState<string[] | null>(null); // T13: Namen ohne Foto-Einwilligung
 
+  // T4: Tagesstatus — wer hat heute noch nicht gegessen / gewickelt
+  const [todayStatus, setTodayStatus] = useState<any | null>(null);
+  const [showOpen, setShowOpen] = useState(true);
+  const loadTodayStatus = async () => {
+    try { const r = await fetch('/api/activities/today-status'); if (r.ok) setTodayStatus(await r.json()); } catch { /* still */ }
+  };
+  useEffect(() => { loadTodayStatus(); }, []);
+
   // T5: bis zu 6 Fotos hochladen
   const MAX_PHOTOS = 6;
   const pickPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -104,6 +112,7 @@ export default function ActivitiesBoard({ childrenList, locations, initialActivi
     const res = await fetch(`/api/activities?${qs.toString()}`);
     if (res.ok) setActivities(await res.json()); else setError('Aktivitäten konnten nicht geladen werden');
     setLoading(false);
+    loadTodayStatus();
   };
   // SSR-Prefetch (ohne Filter) vorhanden → ersten load() überspringen,
   // bei Filter-Wechsel (from/to) aber normal neu laden.
@@ -295,6 +304,48 @@ export default function ActivitiesBoard({ childrenList, locations, initialActivi
       </div>
 
       {error && <div className="alert alert-error">{error}</div>}
+
+      {/* T4: Heute offen — wer hat noch nicht gegessen / gewickelt (nur Kanban/heute) */}
+      {view === 'kanban' && todayStatus && todayStatus.total > 0 && (
+        <div className="card p-4 sm:p-5">
+          <button type="button" onClick={() => setShowOpen(s => !s)} className="flex items-center justify-between w-full text-left">
+            <span className="font-semibold text-secondary-900">📋 Heute offen</span>
+            <span className="flex items-center gap-2 text-xs">
+              <span className="chip chip-neutral">🍽️ {todayStatus.eatenCount}/{todayStatus.total} gegessen</span>
+              <span className="chip chip-neutral">🧷 {todayStatus.changedCount}/{todayStatus.total} gewickelt</span>
+              <span className="text-secondary-400">{showOpen ? '▲' : '▼'}</span>
+            </span>
+          </button>
+          {showOpen && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+              <div className="rounded-2xl bg-amber-50 border border-amber-100 p-3">
+                <p className="font-semibold text-amber-800 text-sm mb-2">🍽️ Noch nicht gegessen <span className="chip chip-warning ml-1">{todayStatus.notEaten.length}</span></p>
+                {todayStatus.notEaten.length === 0 ? (
+                  <p className="text-sm text-secondary-500">Alle haben gegessen 🎉</p>
+                ) : (
+                  <div className="flex flex-wrap gap-1.5">
+                    {todayStatus.notEaten.map((c: any) => (
+                      <span key={c.id} className="chip chip-neutral bg-white">{c.firstName} {c.lastName.charAt(0)}.</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="rounded-2xl bg-secondary-50 border border-secondary-100 p-3">
+                <p className="font-semibold text-secondary-700 text-sm mb-2">🧷 Noch nicht gewickelt <span className="chip chip-neutral ml-1">{todayStatus.notChanged.length}</span></p>
+                {todayStatus.notChanged.length === 0 ? (
+                  <p className="text-sm text-secondary-500">Alle gewickelt 🎉</p>
+                ) : (
+                  <div className="flex flex-wrap gap-1.5">
+                    {todayStatus.notChanged.map((c: any) => (
+                      <span key={c.id} className="chip chip-neutral bg-white">{c.firstName} {c.lastName.charAt(0)}.</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {(view === 'kanban' ? kanbanItems.length === 0 : filtered.length === 0) ? (
         <div className="empty-state"><div className="empty-state-icon">📊</div><p className="text-secondary-500">{view === 'kanban' ? 'Heute noch keine Aktivitäten' : 'Keine Aktivitäten im Zeitraum'}</p></div>
