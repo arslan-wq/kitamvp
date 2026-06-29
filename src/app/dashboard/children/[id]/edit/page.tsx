@@ -1,9 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
 import ChildForm from '../../components/ChildForm';
+import DesiredCareDaysEditor from '@/components/DesiredCareDaysEditor';
 
 export default function EditChildPage({ params }: { params: { id: string } }) {
+  const { data: session } = useSession();
+  const isAdmin = (session?.user as any)?.role === 'ADMIN';
   const [child, setChild] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -52,6 +56,15 @@ export default function EditChildPage({ params }: { params: { id: string } }) {
         }}
         isEditing={true}
       />
+
+      {isAdmin && (
+        <DesiredCareDaysEditor
+          childId={params.id}
+          locationName={child.location?.name || null}
+          birthDate={new Date(child.birthDate).toISOString().split('T')[0]}
+          initial={child.desiredCareDays || null}
+        />
+      )}
     </div>
   );
 }

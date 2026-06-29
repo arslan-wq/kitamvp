@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
+import { weekOccupancyPercent } from '@/lib/occupancy';
 
 export default function ChildrenList({
   initialChildren,
@@ -145,6 +146,7 @@ export default function ChildrenList({
           {filtered.map((child) => {
             const present = isPresent(child.id);
             const allergyCount = child.allergies?.length || 0;
+            const pct = weekOccupancyPercent(child.desiredCareDays);
             return (
               <Link
                 key={child.id}
@@ -177,9 +179,15 @@ export default function ChildrenList({
                     <span className={`w-1.5 h-1.5 rounded-full ${present ? 'bg-green-500' : 'bg-secondary-400'}`} />
                     {present ? 'Anwesend' : 'Nicht da'}
                   </span>
-                  {allergyCount > 0 && (
-                    <span className="chip chip-warning">⚠️ {allergyCount} Allergie{allergyCount > 1 ? 'n' : ''}</span>
-                  )}
+                  <span className="flex items-center gap-2">
+                    {allergyCount > 0 && (
+                      <span className="chip chip-warning">⚠️ {allergyCount} Allergie{allergyCount > 1 ? 'n' : ''}</span>
+                    )}
+                    <span className={`chip ${pct >= 100 ? 'chip-success' : pct > 0 ? 'chip-accent' : 'chip-neutral'}`}
+                      title="Belegung aus gewünschten Betreuungstagen">
+                      {pct >= 100 ? '✓ 100%' : `${pct}%`}
+                    </span>
+                  </span>
                 </div>
               </Link>
             );

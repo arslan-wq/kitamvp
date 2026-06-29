@@ -139,6 +139,7 @@ model Child {
   zipCity         String?         // PLZ / Ort
   nationality     String?         // Nationalität des Kindes
   entryDate       DateTime?       // gewünschtes Eintrittsdatum
+  desiredCareDays Json?           // T3: gewünschte Betreuungstage { weekday(1-5): [parts] } — nur Admin
   kitaId          String
   kita            KiTA            @relation(fields: [kitaId], references: [id])
   locationId      String?
