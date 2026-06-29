@@ -18,16 +18,21 @@ export async function PATCH(
     if (!session?.user?.email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const user = await prisma.user.findUnique({ where: { email: session.user.email } });
-    if (!user || !user.kitaId || user.role === 'PARENT') {
+    // Bestätigen/Ablehnen nur durch Admin oder Standort-Login (Leitung). Betreuer nicht.
+    if (!user || !user.kitaId || !['ADMIN', 'KITA_LEITER'].includes(user.role)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const body = await request.json();
     const { status } = updateBookingStatusSchema.parse(body);
 
-    const booking = await prisma.booking.findUnique({ where: { id: params.id } });
+    const booking = await prisma.booking.findUnique({ where: { id: params.id }, include: { child: { select: { locationId: true } } } });
     if (!booking || booking.kitaId !== user.kitaId) {
       return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
+    }
+    // Standort-Login (Leitung) darf nur den eigenen Standort bestätigen; Admin überall.
+    if (user.role === 'KITA_LEITER' && user.locationId && booking.child.locationId !== user.locationId) {
+      return NextResponse.json({ error: 'Nur Buchungen des eigenen Standorts' }, { status: 403 });
     }
 
     const updated = await prisma.booking.update({

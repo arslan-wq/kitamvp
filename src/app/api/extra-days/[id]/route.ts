@@ -11,7 +11,10 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const user = await prisma.user.findUnique({ where: { email: session.user.email } });
-  if (!user || !user.kitaId || user.role === 'PARENT') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  // Bestätigen/Ablehnen nur durch Admin oder Standort-Login (Leitung). Betreuer nicht.
+  if (!user || !user.kitaId || !['ADMIN', 'KITA_LEITER'].includes(user.role)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
 
   const body = await request.json().catch(() => ({}));
   const status = body.status as string;
@@ -19,6 +22,11 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 
   const ed = await prisma.extraDay.findFirst({ where: { id: params.id, kitaId: user.kitaId }, include: { child: { include: { parents: { select: { id: true, email: true, firstName: true } } } } } });
   if (!ed) return NextResponse.json({ error: 'Nicht gefunden' }, { status: 404 });
+
+  // Standort-Login (Leitung) darf nur den eigenen Standort bestätigen; Admin überall.
+  if (user.role === 'KITA_LEITER' && user.locationId && ed.child.locationId !== user.locationId) {
+    return NextResponse.json({ error: 'Nur Zusatztage des eigenen Standorts' }, { status: 403 });
+  }
 
   const updated = await prisma.extraDay.update({ where: { id: params.id }, data: { status } });
 

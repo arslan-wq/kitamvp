@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import ChildPhotoEditor from '@/components/ChildPhotoEditor';
 import { readFileAsDataUrl } from '@/lib/image';
 import ImageCropper from '@/components/ImageCropper';
-import WeekdayPartsPicker, { dayPartsToWeekdays, type DayParts } from '@/components/WeekdayPartsPicker';
 
 interface ChildFormProps {
   initialData?: {
@@ -48,9 +47,6 @@ export default function ChildForm({ initialData, isEditing = false, childId }: C
   const [cropSrc, setCropSrc] = useState<string | null>(null); // T15
 
   // T16: Belegung (Betreuungstage) als Wochentag→Tagesteile — sofort akzeptiert
-  const todayStr = new Date().toISOString().split('T')[0];
-  const plus6m = (() => { const d = new Date(); d.setMonth(d.getMonth() + 6); return d.toISOString().split('T')[0]; })();
-  const [booking, setBooking] = useState<{ dayParts: DayParts; startDate: string; endDate: string }>({ dayParts: {}, startDate: todayStr, endDate: plus6m });
 
   const pickPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
@@ -113,24 +109,7 @@ export default function ChildForm({ initialData, isEditing = false, childId }: C
         throw new Error(data.error || 'Fehler beim Speichern');
       }
 
-      const createdChild = await response.json();
-
-      // T16: Belegung anlegen (nur beim Erstellen, wenn Tagesteile gewählt) — sofort akzeptiert
-      const weekdays = dayPartsToWeekdays(booking.dayParts);
-      if (!isEditing && createdChild?.id && weekdays.length > 0) {
-        try {
-          await fetch('/api/bookings', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              childId: createdChild.id,
-              startDate: booking.startDate,
-              endDate: booking.endDate,
-              weekdays,
-              dayParts: booking.dayParts,
-            }),
-          });
-        } catch { /* Belegung best-effort — Kind wurde bereits angelegt */ }
-      }
+      await response.json();
 
       setSuccess(
         isEditing
@@ -301,18 +280,8 @@ export default function ChildForm({ initialData, isEditing = false, childId }: C
               </div>
             )}
 
-            {/* T16: Gewünschte Betreuungstage — Wochentag → Tagesteile, sofort akzeptiert */}
-            {!isEditing && (
-              <div className="surface rounded-xl p-5">
-                <p className="eyebrow mb-1">📅 Gewünschte Betreuungstage (optional)</p>
-                <p className="help-text mb-3">Pro Wochentag die Tagesteile wählen — wird sofort akzeptiert. Ohne Auswahl wird keine Belegung angelegt.</p>
-                <WeekdayPartsPicker value={booking.dayParts} onChange={dp => setBooking(b => ({ ...b, dayParts: dp }))} />
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
-                  <div><label className="label">Von</label><input type="date" className="input" value={booking.startDate} onChange={e => setBooking(b => ({ ...b, startDate: e.target.value }))} /></div>
-                  <div><label className="label">Bis</label><input type="date" className="input" value={booking.endDate} onChange={e => setBooking(b => ({ ...b, endDate: e.target.value }))} /></div>
-                </div>
-              </div>
-            )}
+            {/* Gewünschte Betreuungstage werden nicht mehr hier erfasst, sondern
+                vom Admin unter „Kinder → Gewünschte Betreuungstage" (Ticket 3). */}
           </div>
 
           {/* Aktionen */}
