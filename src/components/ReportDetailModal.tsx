@@ -22,6 +22,7 @@ export default function ReportDetailModal({
   report,
   activitiesBase = '/api/activities',
   preloadedActivities,
+  editable = false,
   onClose,
   onPrint,
   onEdit,
@@ -29,6 +30,7 @@ export default function ReportDetailModal({
   report: any;
   activitiesBase?: string;
   preloadedActivities?: any[];
+  editable?: boolean;
   onClose: () => void;
   onPrint?: () => void;
   onEdit?: () => void;
@@ -54,6 +56,14 @@ export default function ReportDetailModal({
   const meals = parseArr(report.meals);
   const incidents = parseArr(report.incidents);
   const reportActs = parseArr(report.activities);
+
+  const deleteActivity = async (id: string) => {
+    if (!confirm('Diese Aktivität wirklich löschen?')) return;
+    try {
+      const res = await fetch(`/api/activities/${id}`, { method: 'DELETE' });
+      if (res.ok) setActs(prev => prev.filter(a => a.id !== id));
+    } catch { /* still */ }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
@@ -90,11 +100,14 @@ export default function ReportDetailModal({
                   return (
                     <li key={a.id} className="flex items-start gap-2">
                       <span>{m.i}</span>
-                      <span className="text-secondary-800">
+                      <span className="text-secondary-800 flex-1 min-w-0">
                         <span className="font-medium">{m.l}</span>
                         <span className="text-secondary-400"> · {fmtTime(a.timestamp)}</span>
                         {a.details ? <span className="block text-secondary-600">{a.details}</span> : null}
                       </span>
+                      {editable && (
+                        <button onClick={() => deleteActivity(a.id)} className="btn-icon w-6 h-6 text-secondary-400 hover:bg-red-50 hover:text-red-600 shrink-0" title="Aktivität löschen">🗑️</button>
+                      )}
                     </li>
                   );
                 })}

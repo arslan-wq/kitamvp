@@ -74,6 +74,19 @@ export default function ChildTimeline({ childId, activitiesBase }: Props) {
   const fmtTime = (s: string) =>
     new Date(s).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' });
 
+  // T1: Bericht-Tage = Tage mit Bericht ODER mit eingebuchten Aktivitäten
+  const actCountByDate: Record<string, number> = {};
+  for (const a of activities) { const k = new Date(a.timestamp).toDateString(); actCountByDate[k] = (actCountByDate[k] || 0) + 1; }
+  const reportDays = (() => {
+    const byDate = new Map<string, any>();
+    for (const r of reports) byDate.set(new Date(r.date).toDateString(), r);
+    for (const a of activities) {
+      const k = new Date(a.timestamp).toDateString();
+      if (!byDate.has(k)) byDate.set(k, { id: 'syn-' + k, childId, date: a.timestamp, synthetic: true });
+    }
+    return Array.from(byDate.values()).sort((x, y) => new Date(y.date).getTime() - new Date(x.date).getTime());
+  })();
+
   if (loading) {
     return <div className="text-center py-6 text-secondary-500">Lädt Verlauf…</div>;
   }
@@ -110,24 +123,28 @@ export default function ChildTimeline({ childId, activitiesBase }: Props) {
       {/* Tagesberichte */}
       <section className="card p-6 sm:p-8">
         <p className="eyebrow mb-4">📋 Tagesberichte</p>
-        {reports.length === 0 ? (
+        {reportDays.length === 0 ? (
           <p className="text-sm text-secondary-500">Noch keine Tagesberichte.</p>
         ) : (
           <div className="space-y-2">
-            {reports.slice(0, 10).map((r) => (
-              <button type="button" key={r.id} onClick={() => setReportDetail(r)} className="surface p-3 w-full text-left hover:ring-1 hover:ring-primary-200 transition" title="Bericht ansehen">
-                <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <p className="text-sm font-semibold text-secondary-900">{fmtDate(r.date)}</p>
-                  <div className="flex gap-1.5 flex-wrap">
-                    {r.mood && <span className="chip chip-primary">Stimmung: {r.mood}</span>}
-                    {Array.isArray(r.meals) && r.meals.length > 0 && <span className="chip chip-neutral">{r.meals.length} Mahlzeiten</span>}
-                    {typeof r.sleepDuration === 'number' && r.sleepDuration > 0 && <span className="chip chip-neutral">Schlaf {r.sleepDuration} Min</span>}
-                    {Array.isArray(r.incidents) && r.incidents.length > 0 && <span className="chip chip-warning">{r.incidents.length} Vorfall/-fälle</span>}
+            {reportDays.slice(0, 14).map((r) => {
+              const actCount = actCountByDate[new Date(r.date).toDateString()] || 0;
+              return (
+                <button type="button" key={r.id} onClick={() => setReportDetail(r)} className="surface p-3 w-full text-left hover:ring-1 hover:ring-primary-200 transition" title="Bericht ansehen">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <p className="text-sm font-semibold text-secondary-900">{fmtDate(r.date)}{r.synthetic && <span className="text-xs font-normal text-secondary-400"> · nur Aktivitäten</span>}</p>
+                    <div className="flex gap-1.5 flex-wrap">
+                      {r.mood && <span className="chip chip-primary">Stimmung: {r.mood}</span>}
+                      {Array.isArray(r.meals) && r.meals.length > 0 && <span className="chip chip-neutral">{r.meals.length} Mahlzeiten</span>}
+                      {typeof r.sleepDuration === 'number' && r.sleepDuration > 0 && <span className="chip chip-neutral">Schlaf {r.sleepDuration} Min</span>}
+                      {Array.isArray(r.incidents) && r.incidents.length > 0 && <span className="chip chip-warning">{r.incidents.length} Vorfall/-fälle</span>}
+                      {actCount > 0 && <span className="chip chip-accent">📊 {actCount} Aktivität{actCount > 1 ? 'en' : ''}</span>}
+                    </div>
                   </div>
-                </div>
-                {r.notes && <p className="text-sm text-secondary-600 mt-1">{r.notes}</p>}
-              </button>
-            ))}
+                  {r.notes && <p className="text-sm text-secondary-600 mt-1">{r.notes}</p>}
+                </button>
+              );
+            })}
           </div>
         )}
       </section>
@@ -163,7 +180,9 @@ export default function ChildTimeline({ childId, activitiesBase }: Props) {
       {reportDetail && (
         <ReportDetailModal
           report={reportDetail}
+          activitiesBase={activitiesBase}
           preloadedActivities={activities}
+          editable={activitiesBase === '/api/activities'}
           onClose={() => setReportDetail(null)}
         />
       )}

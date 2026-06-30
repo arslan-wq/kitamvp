@@ -67,5 +67,6 @@ export async function GET(request: NextRequest) {
     changedCount: all.length - notChanged.length,
     notEaten,
     notChanged,
+    presentIds: all.map((c) => c.id), // T2: heute anwesende/erwartete Kinder
   });
 }

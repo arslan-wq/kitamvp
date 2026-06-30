@@ -133,12 +133,21 @@ export default function DailyReportsTimeline({ childrenList, locations }: { chil
     return Array.from(m.entries());
   }, [filtered]);
 
-  const printReport = (r: any) => {
+  const ACT_PDF: Record<string, string> = { EATING: '🍽️ Essen', DRINKING: '🥤 Trinken', CHANGING_DIAPER: '🧷 Wickeln', SLEEPING: '😴 Schlafen', ACTIVITY: '🎨 Beschäftigung', DISCUSSION: '💬 Besprechung', NOTE: '📝 Bemerkung', HEALTH_ISSUE: '🏥 Gesundheit', TRIP: '🚌 Ausflug', ABSENT: '❌ Abwesend', HOLIDAY: '🎉 Ferien', DRAWING: '✏️ Zeichnen' };
+  const printReport = async (r: any) => {
     const meals = parseArr(r.meals);
     const incidents = parseArr(r.incidents);
     const activities = parseArr(r.activities);
     const childName = `${r.child?.firstName || ''} ${r.child?.lastName || ''}`;
     const dateStr = new Date(r.date).toLocaleDateString('de-CH', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+    // T1: eingebuchte Aktivitäten des Tages laden
+    let logged: any[] = [];
+    try {
+      const res = await fetch(`/api/activities?childId=${r.childId}`);
+      const all = res.ok ? await res.json() : [];
+      logged = (Array.isArray(all) ? all : []).filter((a: any) => new Date(a.timestamp).toDateString() === new Date(r.date).toDateString());
+    } catch { /* still */ }
+    const fmtT = (t: string) => new Date(t).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' });
     const w = window.open('', '_blank', 'width=820,height=1000');
     if (!w) return;
     const logoUrl = `${window.location.origin}/brand/kitaluna-wordmark.svg`;
@@ -157,7 +166,8 @@ export default function DailyReportsTimeline({ childrenList, locations }: { chil
       <div class="row"><span class="lbl">Stimmung:</span> <span class="val">${moodLabel(r.mood) || '—'}</span></div>
       <div class="box"><div class="lbl">Mahlzeiten</div>${meals.length ? '<ul>' + meals.map((m: any) => `<li>${MEAL_TYPES.find(t => t.k === m.type)?.l || m.type}${m.consumed ? ' ✓' : ''}</li>`).join('') + '</ul>' : '—'}</div>
       <div class="box"><div class="lbl">Schlaf</div> ${r.sleepDuration ? r.sleepDuration + ' Min' : '—'}${r.toiletVisits ? ` &nbsp; · &nbsp; WC: ${r.toiletVisits}` : ''}</div>
-      ${activities.length ? `<div class="box"><div class="lbl">Aktivitäten</div><ul>${activities.map((a: any) => `<li>${a.name || a.text || ''}</li>`).join('')}</ul></div>` : ''}
+      ${activities.length ? `<div class="box"><div class="lbl">Notizen zu Aktivitäten</div><ul>${activities.map((a: any) => `<li>${a.name || a.text || ''}</li>`).join('')}</ul></div>` : ''}
+      ${logged.length ? `<div class="box"><div class="lbl">Eingebuchte Aktivitäten</div><ul>${logged.map((a: any) => `<li>${ACT_PDF[a.type] || a.type} · ${fmtT(a.timestamp)}${a.details ? ' — ' + a.details : ''}</li>`).join('')}</ul></div>` : ''}
       ${incidents.length ? `<div class="box" style="border-color:#e0a"><div class="lbl">Vorfälle</div><ul>${incidents.map((i: any) => `<li>${i.description || i.text || ''}</li>`).join('')}</ul></div>` : ''}
       ${r.notes ? `<div class="box"><div class="lbl">Notizen</div>${r.notes}</div>` : ''}
       <p style="color:#6e6e73;font-size:12px;margin-top:24px">Erstellt mit KitaLuna · ${new Date().toLocaleDateString('de-CH')}</p>
@@ -301,6 +311,7 @@ export default function DailyReportsTimeline({ childrenList, locations }: { chil
         <ReportDetailModal
           report={detail}
           activitiesBase="/api/activities"
+          editable
           onClose={() => setDetail(null)}
           onPrint={() => printReport(detail)}
           onEdit={() => { const r = detail; setDetail(null); openEdit(r); }}

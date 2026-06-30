@@ -134,14 +134,19 @@ export default function ActivitiesBoard({ childrenList, locations, initialActivi
     setOpen(true);
   };
 
-  // Kinder des im Modal gewählten Standorts, gefiltert nach Suche
+  // T2: heute anwesende Kinder (für grün/rot-Punkt im Modal)
+  const presentSet = useMemo(() => new Set<string>(todayStatus?.presentIds || []), [todayStatus]);
+  const isPresentToday = (id: string) => presentSet.has(id);
+
+  // Kinder des im Modal gewählten Standorts, gefiltert nach Suche (Anwesende zuerst)
   const modalChildren = useMemo(() => {
     if (!form) return [] as ChildLite[];
     const q = (form.search || '').trim().toLowerCase();
     return childrenList
       .filter(c => (c.locationId || '__none__') === form.locationId)
-      .filter(c => !q || `${c.firstName} ${c.lastName}`.toLowerCase().includes(q));
-  }, [form, childrenList]);
+      .filter(c => !q || `${c.firstName} ${c.lastName}`.toLowerCase().includes(q))
+      .sort((a, b) => (presentSet.has(b.id) ? 1 : 0) - (presentSet.has(a.id) ? 1 : 0));
+  }, [form, childrenList, presentSet]);
 
   const toggleChild = (id: string) =>
     setForm((f: any) => ({ ...f, childIds: f.childIds.includes(id) ? f.childIds.filter((x: string) => x !== id) : [...f.childIds, id] }));
@@ -478,12 +483,17 @@ export default function ActivitiesBoard({ childrenList, locations, initialActivi
                   <div className="max-h-52 overflow-y-auto rounded-xl border border-secondary-100 divide-y divide-secondary-50">
                     {modalChildren.length === 0 ? (
                       <p className="text-sm text-secondary-400 text-center py-4">Keine Kinder an diesem Standort</p>
-                    ) : modalChildren.map(c => (
+                    ) : modalChildren.map(c => {
+                      const present = isPresentToday(c.id);
+                      return (
                       <label key={c.id} className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-secondary-50">
                         <input type="checkbox" checked={form.childIds.includes(c.id)} onChange={() => toggleChild(c.id)} className="w-4 h-4 accent-primary-600" />
+                        <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${present ? 'bg-green-500' : 'bg-red-400'}`} title={present ? 'Heute anwesend' : 'Heute nicht anwesend (rückwirkend)'} />
                         <span className="text-sm text-secondary-900">{c.firstName} {c.lastName}</span>
+                        {!present && <span className="text-[10px] text-secondary-400 ml-auto">abwesend</span>}
                       </label>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               </>
