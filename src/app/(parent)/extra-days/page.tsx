@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { extraDayCost, extraDayLabel } from '@/lib/occupancy';
 
 interface Child { id: string; firstName: string; lastName: string; }
 const PARTS = [{ k: 'VORMITTAG', l: 'Vormittag' }, { k: 'MITTAGESSEN', l: 'Mittagessen' }, { k: 'NACHMITTAG', l: 'Nachmittag' }];
@@ -115,6 +116,8 @@ export default function ParentExtraDaysPage() {
             {list.map(ed => {
               const st = STATUS[ed.status] || STATUS.REQUESTED;
               const pl = Array.isArray(ed.parts) ? ed.parts.map((p: string) => partLabel(p)).join(' + ') : '';
+              const cost = extraDayCost(ed.parts);
+              const approved = ed.status === 'APPROVED';
               return (
                 <div key={ed.id} className="flex items-center justify-between gap-3 p-3 surface rounded-xl">
                   <div className="min-w-0">
@@ -122,9 +125,13 @@ export default function ParentExtraDaysPage() {
                       <p className="font-medium text-secondary-900">{ed.child?.firstName} {ed.child?.lastName} · {new Date(ed.date).toLocaleDateString('de-CH')}</p>
                       <span className={`chip ${st.cls}`}>{st.l}</span>
                     </div>
-                    {pl && <p className="text-xs text-secondary-500">{pl}</p>}
+                    {pl && <p className="text-xs text-secondary-500">{pl} · {extraDayLabel(ed.parts)} · CHF {cost}.–</p>}
                   </div>
-                  <button onClick={() => remove(ed.id)} className="btn-icon text-secondary-400 hover:bg-red-50 hover:text-red-600 shrink-0" title="Entfernen">🗑️</button>
+                  {approved ? (
+                    <span className="text-xs text-secondary-400 shrink-0" title="Bestätigte Zusatztage kann nur die Kita-Leitung entfernen">🔒 bestätigt</span>
+                  ) : (
+                    <button onClick={() => remove(ed.id)} className="btn-icon text-secondary-400 hover:bg-red-50 hover:text-red-600 shrink-0" title="Entfernen">🗑️</button>
+                  )}
                 </div>
               );
             })}

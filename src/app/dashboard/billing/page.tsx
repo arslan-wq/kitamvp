@@ -3,7 +3,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { weekOccupancyPercent, monthlyAmount, fullMonthRate } from '@/lib/occupancy';
+import { weekOccupancyPercent, monthlyAmount, fullMonthRate, extraDayCost, extraDayLabel, PART_WEIGHTS } from '@/lib/occupancy';
+
+const WD_LABEL: Record<number, string> = { 1: 'Mo', 2: 'Di', 3: 'Mi', 4: 'Do', 5: 'Fr' };
+const PART_LABEL: Record<string, string> = { VORMITTAG: 'Vormittag', MITTAGESSEN: 'Mittagessen', NACHMITTAG: 'Nachmittag' };
 
 interface BillingRecord {
   id: string;
@@ -42,6 +45,22 @@ export default function BillingPage() {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
   const [form, setForm] = useState({ childId: '', month: thisMonth(), baseAmount: '', extraDaysCost: '', deductions: '' });
+  const [modalExtras, setModalExtras] = useState<{ date: string; parts: string[]; cost: number }[]>([]);
+  const [detail, setDetail] = useState<BillingRecord | null>(null);
+  const [detailExtras, setDetailExtras] = useState<{ date: string; parts: string[]; cost: number }[]>([]);
+
+  // Bestätigte Zusatztage eines Kindes in einem Monat (YYYY-MM) mit Kosten
+  const fetchMonthExtras = async (childId: string, monthStr: string) => {
+    try {
+      const res = await fetch(`/api/extra-days?month=${monthStr}`);
+      if (!res.ok) return [];
+      const all = await res.json();
+      return (Array.isArray(all) ? all : [])
+        .filter((e: any) => e.childId === childId && e.status === 'APPROVED')
+        .map((e: any) => ({ date: e.date, parts: e.parts || [], cost: extraDayCost(e.parts) }))
+        .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    } catch { return []; }
+  };
 
   const load = async () => {
     try {
@@ -68,6 +87,21 @@ export default function BillingPage() {
     setForm(f => ({ ...f, childId: id, baseAmount: sug != null ? String(sug) : '' }));
   };
 
+  // Bestätigte Zusatztage des Monats laden → Zusatztage-Betrag automatisch füllen
+  useEffect(() => {
+    if (!showCreate || !form.childId || !form.month) { setModalExtras([]); return; }
+    let active = true;
+    (async () => {
+      const ex = await fetchMonthExtras(form.childId, form.month);
+      if (!active) return;
+      setModalExtras(ex);
+      const sum = ex.reduce((s, e) => s + e.cost, 0);
+      setForm(f => ({ ...f, extraDaysCost: sum > 0 ? String(sum) : '' }));
+    })();
+    return () => { active = false; };
+    // eslint-disable-next-line
+  }, [showCreate, form.childId, form.month]);
+
   const total = (Number(form.baseAmount) || 0) + (Number(form.extraDaysCost) || 0) - (Number(form.deductions) || 0);
 
   const create = async () => {
@@ -81,6 +115,7 @@ export default function BillingPage() {
           childId: form.childId,
           month: `${form.month}-01`,
           baseAmount: Number(form.baseAmount),
+          extraDays: modalExtras.length,
           extraDaysCost: Number(form.extraDaysCost) || 0,
           deductions: Number(form.deductions) || 0,
         }),
@@ -92,6 +127,16 @@ export default function BillingPage() {
   };
 
   const childName = (r: BillingRecord) => r.child ? `${r.child.firstName} ${r.child.lastName}` : (children.find(c => c.id === r.childId) ? `${children.find(c => c.id === r.childId)!.firstName}` : 'Kind');
+  const childOf = (r: BillingRecord) => children.find(c => c.id === r.childId);
+  const monthKey = (m: string) => { const d = new Date(m); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; };
+
+  // Rechnung anklicken → Detail-Popup (Buchung + Zusatztage)
+  const openDetail = async (r: BillingRecord) => {
+    setDetail(r);
+    setDetailExtras([]);
+    const ex = await fetchMonthExtras(r.childId, monthKey(r.month));
+    setDetailExtras(ex);
+  };
 
   // Status manuell ändern (Admin/Leitung)
   const changeStatus = async (id: string, newStatus: string) => {
@@ -107,16 +152,27 @@ export default function BillingPage() {
 
   // Druckbare PDF-Rechnung öffnen
   const esc = (s: string) => (s || '').replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' } as any)[c]);
-  const printInvoice = (r: BillingRecord) => {
+  const printInvoice = async (r: BillingRecord) => {
+    const c = childOf(r);
+    const extras = await fetchMonthExtras(r.childId, monthKey(r.month));
     const w = window.open('', '_blank', 'width=900,height=1100');
     if (!w) { setError('Pop-up blockiert — bitte erlauben, um die Rechnung zu drucken.'); return; }
-    const loc = r.child?.location?.name || '';
+    const loc = r.child?.location?.name || c?.location?.name || '';
     const nr = `R-${new Date(r.month).getFullYear()}${String(new Date(r.month).getMonth() + 1).padStart(2, '0')}-${r.id.slice(-5).toUpperCase()}`;
+    // Buchungs-Komposition (gewünschte Betreuungstage)
+    const dcd = c?.desiredCareDays || {};
+    const occ = weekOccupancyPercent(dcd);
+    const compRows = [1, 2, 3, 4, 5]
+      .map(d => ({ d, parts: (dcd[d] ?? dcd[String(d)]) as string[] | undefined }))
+      .filter(x => x.parts && x.parts.length)
+      .map(x => `<tr><td style="padding-left:22px;color:#6e6e73">${WD_LABEL[x.d]}: ${x.parts!.map(p => PART_LABEL[p] || p).join(', ')}</td><td class="r muted"></td></tr>`)
+      .join('');
     const rows = [
-      { l: `Betreuung ${esc(fmtMonth(r.month))}`, v: r.baseAmount },
-      ...(r.extraDaysCost ? [{ l: 'Zusatztage', v: r.extraDaysCost }] : []),
-      ...(r.deductions ? [{ l: 'Abzüge', v: -r.deductions }] : []),
-    ].map(x => `<tr><td>${x.l}</td><td class="r">${fmtChf(x.v)}</td></tr>`).join('');
+      `<tr><td><strong>Betreuung ${esc(fmtMonth(r.month))}</strong> · Belegung ${occ}%</td><td class="r">${fmtChf(r.baseAmount)}</td></tr>`,
+      compRows,
+      ...extras.map(e => `<tr><td style="padding-left:22px">Zusatztag ${new Date(e.date).toLocaleDateString('de-CH')} · ${esc(extraDayLabel(e.parts))}</td><td class="r">${fmtChf(e.cost)}</td></tr>`),
+      ...(r.deductions ? [`<tr><td>Abzüge</td><td class="r">${fmtChf(-r.deductions)}</td></tr>`] : []),
+    ].join('');
     w.document.write(`<!doctype html><html lang="de"><head><meta charset="utf-8"><title>Rechnung ${nr}</title>
       <style>
       *{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;color:#1d1d1f;box-sizing:border-box}
@@ -200,19 +256,20 @@ export default function BillingPage() {
               </tr></thead>
               <tbody className="divide-y divide-gray-100">
                 {filtered.map(r => (
-                  <tr key={r.id} className="hover:bg-gray-50 transition-colors">
+                  <tr key={r.id} className="hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => openDetail(r)} title="Details ansehen">
                     <td className="py-3 px-4"><div className="flex items-center gap-2.5">
                       <div className="avatar avatar-sm">{childName(r).split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}</div>
                       <span className="text-secondary-700">{childName(r)}</span></div></td>
                     <td className="py-3 px-4 text-secondary-500">{fmtMonth(r.month)}</td>
                     <td className="py-3 px-4 text-right text-secondary-500 tabular-nums">{fmtChf(r.baseAmount)}</td>
                     <td className="py-3 px-4 text-right font-semibold text-secondary-900 tabular-nums">{fmtChf(r.totalAmount)}</td>
-                    <td className="py-3 px-4">
+                    <td className="py-3 px-4" onClick={e => e.stopPropagation()}>
                       <select value={r.status} onChange={e => changeStatus(r.id, e.target.value)} className="input py-1.5 text-sm max-w-[10rem]">
                         {['PENDING', 'PAID', 'OVERDUE', 'CANCELLED'].map(s => <option key={s} value={s}>{STATUS_LABEL[s]}</option>)}
                       </select>
                     </td>
-                    <td className="py-3 px-4 text-right">
+                    <td className="py-3 px-4 text-right" onClick={e => e.stopPropagation()}>
+                      <button onClick={() => openDetail(r)} className="btn btn-secondary btn-sm mr-1" title="Details">ℹ️</button>
                       <button onClick={() => printInvoice(r)} className="btn btn-secondary btn-sm" title="Rechnung als PDF drucken">🖨️ PDF</button>
                     </td>
                   </tr>
@@ -286,7 +343,11 @@ export default function BillingPage() {
                   <button type="button" onClick={() => setForm(f => ({ ...f, baseAmount: String(suggested) }))} className="text-xs text-primary-600 hover:underline mt-1">↻ Vorschlag übernehmen</button>
                 )}
               </div>
-              <div><label className="label">Zusatztage (CHF)</label><input type="number" step="0.05" className="input" value={form.extraDaysCost} onChange={e => setForm(f => ({ ...f, extraDaysCost: e.target.value }))} placeholder="0" /></div>
+              <div>
+                <label className="label">Zusatztage (CHF)</label>
+                <input type="number" step="0.05" className="input" value={form.extraDaysCost} onChange={e => setForm(f => ({ ...f, extraDaysCost: e.target.value }))} placeholder="0" />
+                {modalExtras.length > 0 && <p className="text-xs text-primary-600 mt-1">{modalExtras.length} bestätigte(r) Zusatztag(e) automatisch berücksichtigt</p>}
+              </div>
               <div><label className="label">Abzüge (CHF)</label><input type="number" step="0.05" className="input" value={form.deductions} onChange={e => setForm(f => ({ ...f, deductions: e.target.value }))} placeholder="0" /></div>
             </div>
 
@@ -302,6 +363,85 @@ export default function BillingPage() {
           </div>
         </div>
       )}
+
+      {/* Rechnungs-Detail: wie kommt der Betrag zustande? */}
+      {detail && (() => {
+        const c = childOf(detail);
+        const dcd: any = c?.desiredCareDays || {};
+        const occ = weekOccupancyPercent(dcd);
+        const comp = [1, 2, 3, 4, 5]
+          .map(d => ({ d, parts: (dcd[d] ?? dcd[String(d)]) as string[] | undefined }))
+          .filter(x => x.parts && x.parts.length);
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setDetail(null)}>
+            <div onClick={e => e.stopPropagation()} className="bg-white rounded-2xl w-full max-w-lg max-h-[92vh] overflow-y-auto p-6 space-y-4 shadow-elevated">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="eyebrow">Rechnungs-Detail</p>
+                  <h2 className="text-xl font-bold text-secondary-900">{childName(detail)}</h2>
+                  <p className="page-subtitle">{fmtMonth(detail.month)} · {STATUS_LABEL[detail.status]}</p>
+                </div>
+                <button onClick={() => setDetail(null)} className="btn-icon w-8 h-8 text-secondary-400 hover:bg-secondary-100">✕</button>
+              </div>
+
+              {/* Buchung / gewünschte Betreuungstage */}
+              <div className="surface rounded-xl p-4">
+                <p className="eyebrow mb-2">📅 Gebuchte Betreuung · Belegung {occ}%</p>
+                {comp.length === 0 ? (
+                  <p className="text-sm text-secondary-400">Keine gewünschten Betreuungstage hinterlegt.</p>
+                ) : (
+                  <ul className="text-sm text-secondary-700 space-y-1">
+                    {comp.map(x => (
+                      <li key={x.d} className="flex justify-between gap-3">
+                        <span><strong>{WD_LABEL[x.d]}</strong>: {x.parts!.map(p => PART_LABEL[p] || p).join(', ')}</span>
+                        <span className="text-secondary-400">{x.parts!.reduce((s, p) => s + (p === 'MITTAGESSEN' && x.parts!.length === 1 ? 14 : (PART_WEIGHTS[p] || 0)), 0)}%</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <div className="flex justify-between mt-2 pt-2 border-t border-secondary-100 text-sm font-medium">
+                  <span>Grundbetrag (Belegung × Tarif)</span><span className="tabular-nums">{fmtChf(detail.baseAmount)}</span>
+                </div>
+              </div>
+
+              {/* Zusatztage */}
+              <div className="surface rounded-xl p-4">
+                <p className="eyebrow mb-2">⭐ Zusatztage in diesem Monat</p>
+                {detailExtras.length === 0 ? (
+                  <p className="text-sm text-secondary-400">Keine bestätigten Zusatztage.</p>
+                ) : (
+                  <ul className="text-sm text-secondary-700 space-y-1">
+                    {detailExtras.map((e, i) => (
+                      <li key={i} className="flex justify-between gap-3">
+                        <span>{new Date(e.date).toLocaleDateString('de-CH')} · {extraDayLabel(e.parts)}</span>
+                        <span className="tabular-nums">{fmtChf(e.cost)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {detailExtras.length > 0 && (
+                  <div className="flex justify-between mt-2 pt-2 border-t border-secondary-100 text-sm font-medium">
+                    <span>Zusatztage gesamt ({detailExtras.length})</span><span className="tabular-nums">{fmtChf(detailExtras.reduce((s, e) => s + e.cost, 0))}</span>
+                  </div>
+                )}
+              </div>
+
+              {detail.deductions > 0 && (
+                <div className="flex justify-between text-sm px-1"><span>Abzüge</span><span className="tabular-nums">− {fmtChf(detail.deductions)}</span></div>
+              )}
+              <div className="flex justify-between items-center rounded-xl bg-primary-50 p-3">
+                <span className="font-semibold text-secondary-700">Total</span>
+                <span className="text-lg font-bold text-primary-700">{fmtChf(detail.totalAmount)}</span>
+              </div>
+
+              <div className="flex justify-end gap-2">
+                <button onClick={() => printInvoice(detail)} className="btn btn-secondary btn-sm">🖨️ PDF</button>
+                <button onClick={() => setDetail(null)} className="btn btn-primary btn-sm px-5">Schliessen</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

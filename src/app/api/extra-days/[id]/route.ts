@@ -57,8 +57,18 @@ export async function DELETE(_request: NextRequest, { params }: { params: { id: 
   if (!session?.user?.email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const ed = await prisma.extraDay.findUnique({ where: { id: params.id } });
   if (!ed) return NextResponse.json({ error: 'Nicht gefunden' }, { status: 404 });
-  const access = await resolveChildAccess(session.user.email, ed.childId);
-  if (!access.allowed) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+
+  // T2: Bestätigte Zusatztage darf NUR der Admin löschen. Offene (REQUESTED/
+  // REJECTED) dürfen Eltern (eigenes Kind) und Personal löschen/neu anlegen.
+  if (ed.status === 'APPROVED') {
+    const u = await prisma.user.findUnique({ where: { email: session.user.email } });
+    if (!u || u.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Bestätigte Zusatztage kann nur der Admin löschen.' }, { status: 403 });
+    }
+  } else {
+    const access = await resolveChildAccess(session.user.email, ed.childId);
+    if (!access.allowed) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
   await prisma.extraDay.delete({ where: { id: params.id } });
   return NextResponse.json({ success: true });
 }

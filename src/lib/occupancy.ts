@@ -64,6 +64,24 @@ export function fullMonthRate(locationName: string | null | undefined, birthDate
   return FULL_RATES[grp][under18 ? 'under18' : 'over18'];
 }
 
+// Zusatztag-Tarife (CHF pro Tag), unabhängig vom Standort:
+//   halber Tag ohne Mittagessen = 50, halber Tag mit Mittagessen = 65, ganzer Tag = 115
+export function extraDayCost(parts: string[] | null | undefined): number {
+  if (!parts || parts.length === 0) return 0;
+  const has = (k: string) => parts.includes(k);
+  if (has('VORMITTAG') && has('MITTAGESSEN') && has('NACHMITTAG')) return 115; // ganzer Tag
+  if (has('MITTAGESSEN')) return 65; // halber Tag mit Mittagessen
+  return 50; // halber Tag ohne Mittagessen (nur Vormittag oder nur Nachmittag)
+}
+
+export function extraDayLabel(parts: string[] | null | undefined): string {
+  if (!parts || parts.length === 0) return '—';
+  const has = (k: string) => parts.includes(k);
+  if (has('VORMITTAG') && has('MITTAGESSEN') && has('NACHMITTAG')) return 'Ganzer Tag';
+  if (has('MITTAGESSEN')) return 'Halber Tag mit Mittagessen';
+  return 'Halber Tag ohne Mittagessen';
+}
+
 // Monatsbetrag = Tarif × Belegung%. null, wenn Standort unbekannt.
 export function monthlyAmount(
   occupancyPercent: number,
