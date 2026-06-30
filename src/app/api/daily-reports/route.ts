@@ -37,6 +37,10 @@ export async function GET(request: NextRequest) {
 
   if (isStaff?.kitaId) {
     where.kitaId = isStaff.kitaId;
+    // T1: Standort/Leitung & Betreuer sehen nur Berichte ihres eigenen Standorts; Admin alle.
+    if (isStaff.role !== 'ADMIN' && isStaff.locationId) {
+      where.child = { locationId: isStaff.locationId };
+    }
   } else if (isParent) {
     // Eltern: nur Berichte ihrer eigenen Kinder
     const parent = await prisma.parent.findUnique({

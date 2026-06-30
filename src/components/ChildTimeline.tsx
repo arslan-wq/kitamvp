@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import ReportDetailModal from '@/components/ReportDetailModal';
 
 const WEEKDAYS = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
 
@@ -44,6 +45,7 @@ export default function ChildTimeline({ childId, activitiesBase }: Props) {
   const [reports, setReports] = useState<any[]>([]);
   const [bookings, setBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [reportDetail, setReportDetail] = useState<any | null>(null);
 
   useEffect(() => {
     if (!childId) return;
@@ -113,7 +115,7 @@ export default function ChildTimeline({ childId, activitiesBase }: Props) {
         ) : (
           <div className="space-y-2">
             {reports.slice(0, 10).map((r) => (
-              <div key={r.id} className="surface p-3">
+              <button type="button" key={r.id} onClick={() => setReportDetail(r)} className="surface p-3 w-full text-left hover:ring-1 hover:ring-primary-200 transition" title="Bericht ansehen">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <p className="text-sm font-semibold text-secondary-900">{fmtDate(r.date)}</p>
                   <div className="flex gap-1.5 flex-wrap">
@@ -124,7 +126,7 @@ export default function ChildTimeline({ childId, activitiesBase }: Props) {
                   </div>
                 </div>
                 {r.notes && <p className="text-sm text-secondary-600 mt-1">{r.notes}</p>}
-              </div>
+              </button>
             ))}
           </div>
         )}
@@ -157,6 +159,14 @@ export default function ChildTimeline({ childId, activitiesBase }: Props) {
           </div>
         )}
       </section>
+
+      {reportDetail && (
+        <ReportDetailModal
+          report={reportDetail}
+          preloadedActivities={activities}
+          onClose={() => setReportDetail(null)}
+        />
+      )}
     </div>
   );
 }

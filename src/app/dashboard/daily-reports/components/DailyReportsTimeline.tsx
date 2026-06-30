@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
+import ReportDetailModal from '@/components/ReportDetailModal';
 
 interface ChildLite { id: string; firstName: string; lastName: string; photoUrl?: string | null; locationId?: string | null; }
 interface LocationLite { id: string; name: string; }
@@ -296,38 +297,15 @@ export default function DailyReportsTimeline({ childrenList, locations }: { chil
       )}
 
       {/* T6: Volltext-Detail-Popup für Tagesberichte */}
-      {detail && (() => {
-        const meals = parseArr(detail.meals);
-        const incidents = parseArr(detail.incidents);
-        const activities = parseArr(detail.activities);
-        return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setDetail(null)}>
-            <div onClick={e => e.stopPropagation()} className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto p-6 shadow-elevated">
-              <div className="flex items-start justify-between gap-3 mb-4">
-                <div>
-                  <h2 className="text-lg font-bold text-secondary-900">{detail.child?.firstName} {detail.child?.lastName}</h2>
-                  <p className="text-xs text-secondary-500">{new Date(detail.date).toLocaleString('de-CH', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
-                </div>
-                <button onClick={() => setDetail(null)} className="btn-icon w-8 h-8 text-secondary-400 hover:bg-secondary-100" title="Schliessen">✕</button>
-              </div>
-              <div className="space-y-3 text-sm">
-                {detail.mood && <p><span className="text-secondary-400">Stimmung:</span> {moodLabel(detail.mood)}</p>}
-                {meals.length > 0 && <p><span className="text-secondary-400">Mahlzeiten:</span> {meals.map((m: any) => MEAL_TYPES.find(t => t.k === m.type)?.l || m.type).join(', ')}</p>}
-                {detail.sleepDuration > 0 && <p><span className="text-secondary-400">Schlaf:</span> {detail.sleepDuration} Min</p>}
-                {(detail.toiletVisits > 0 || detail.diaperChanges > 0) && <p><span className="text-secondary-400">Hygiene:</span> WC {detail.toiletVisits || 0} · Windeln {detail.diaperChanges || 0}</p>}
-                {activities.length > 0 && <div><p className="text-secondary-400 mb-0.5">Aktivitäten</p><ul className="list-disc pl-5 text-secondary-800">{activities.map((a: any, i: number) => <li key={i}>{a.name || a.text || a.type}</li>)}</ul></div>}
-                {incidents.length > 0 && <div><p className="text-yellow-700 font-medium mb-0.5">⚠️ Vorfälle</p><ul className="list-disc pl-5 text-secondary-800">{incidents.map((x: any, i: number) => <li key={i} className="whitespace-pre-wrap break-words">{x.description || x.text || x.type}</li>)}</ul></div>}
-                {detail.notes && <div><p className="text-secondary-400 mb-0.5">Notizen</p><p className="text-secondary-800 whitespace-pre-wrap break-words">{detail.notes}</p></div>}
-              </div>
-              <div className="flex justify-end gap-2 mt-5">
-                <button onClick={() => printReport(detail)} className="btn btn-secondary btn-sm">🖨️ PDF</button>
-                <button onClick={() => { const r = detail; setDetail(null); openEdit(r); }} className="btn btn-secondary btn-sm">✏️ Bearbeiten</button>
-                <button onClick={() => setDetail(null)} className="btn btn-primary btn-sm px-5">Schliessen</button>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
+      {detail && (
+        <ReportDetailModal
+          report={detail}
+          activitiesBase="/api/activities"
+          onClose={() => setDetail(null)}
+          onPrint={() => printReport(detail)}
+          onEdit={() => { const r = detail; setDetail(null); openEdit(r); }}
+        />
+      )}
     </div>
   );
 }
