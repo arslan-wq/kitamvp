@@ -17,7 +17,7 @@ export async function GET() {
 
     const invoices = await prisma.billingRecord.findMany({
       where: { kitaId: user.kitaId! },
-      include: { child: { select: { firstName: true, lastName: true } } },
+      include: { child: { select: { firstName: true, lastName: true, location: { select: { name: true } } } } },
       orderBy: { month: 'desc' },
       take: 100,
     });

@@ -8,7 +8,7 @@ import { weekOccupancyPercent, monthlyAmount, fullMonthRate } from '@/lib/occupa
 interface BillingRecord {
   id: string;
   childId: string;
-  child?: { firstName: string; lastName: string };
+  child?: { firstName: string; lastName: string; location?: { name: string } | null };
   month: string;
   baseAmount: number;
   extraDays: number;
@@ -92,6 +92,67 @@ export default function BillingPage() {
   };
 
   const childName = (r: BillingRecord) => r.child ? `${r.child.firstName} ${r.child.lastName}` : (children.find(c => c.id === r.childId) ? `${children.find(c => c.id === r.childId)!.firstName}` : 'Kind');
+
+  // Status manuell ändern (Admin/Leitung)
+  const changeStatus = async (id: string, newStatus: string) => {
+    setRecords(rs => rs.map(r => r.id === id ? { ...r, status: newStatus as any } : r)); // optimistisch
+    try {
+      const res = await fetch(`/api/billing/invoices/${id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (!res.ok) await load(); // bei Fehler echten Stand laden
+    } catch { await load(); }
+  };
+
+  // Druckbare PDF-Rechnung öffnen
+  const esc = (s: string) => (s || '').replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' } as any)[c]);
+  const printInvoice = (r: BillingRecord) => {
+    const w = window.open('', '_blank', 'width=900,height=1100');
+    if (!w) { setError('Pop-up blockiert — bitte erlauben, um die Rechnung zu drucken.'); return; }
+    const loc = r.child?.location?.name || '';
+    const nr = `R-${new Date(r.month).getFullYear()}${String(new Date(r.month).getMonth() + 1).padStart(2, '0')}-${r.id.slice(-5).toUpperCase()}`;
+    const rows = [
+      { l: `Betreuung ${esc(fmtMonth(r.month))}`, v: r.baseAmount },
+      ...(r.extraDaysCost ? [{ l: 'Zusatztage', v: r.extraDaysCost }] : []),
+      ...(r.deductions ? [{ l: 'Abzüge', v: -r.deductions }] : []),
+    ].map(x => `<tr><td>${x.l}</td><td class="r">${fmtChf(x.v)}</td></tr>`).join('');
+    w.document.write(`<!doctype html><html lang="de"><head><meta charset="utf-8"><title>Rechnung ${nr}</title>
+      <style>
+      *{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;color:#1d1d1f;box-sizing:border-box}
+      body{margin:40px;font-size:14px}
+      .head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #6b8f71;padding-bottom:14px;margin-bottom:24px}
+      .head img{height:42px}
+      h1{font-size:22px;margin:0 0 2px}
+      .muted{color:#6e6e73;font-size:13px}
+      .meta{display:flex;justify-content:space-between;margin:18px 0 8px}
+      table{width:100%;border-collapse:collapse;margin-top:8px}
+      td,th{padding:10px 8px;border-bottom:1px solid #e5e7eb;text-align:left}
+      td.r,th.r{text-align:right}
+      tfoot td{border-top:2px solid #1d1d1f;border-bottom:none;font-weight:700;font-size:16px}
+      .badge{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600}
+      .paid{background:#dcfce7;color:#166534}.open{background:#e6efe8;color:#3f5f48}
+      @media print{img{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+      </style></head><body>
+      <div class="head">
+        <div><h1>🍽️ KitaLuna</h1><div class="muted">${esc(loc)}</div></div>
+        <img src="/brand/kitaluna-wordmark.svg" alt="KitaLuna" onerror="this.style.display='none'"/>
+      </div>
+      <div class="meta">
+        <div><strong>Rechnung an</strong><br>${esc(childName(r))}</div>
+        <div style="text-align:right"><strong>Rechnung ${nr}</strong><br><span class="muted">Periode: ${esc(fmtMonth(r.month))}</span><br>
+          <span class="badge ${r.status === 'PAID' ? 'paid' : 'open'}">${STATUS_LABEL[r.status]}</span></div>
+      </div>
+      <table>
+        <thead><tr><th>Position</th><th class="r">Betrag</th></tr></thead>
+        <tbody>${rows}</tbody>
+        <tfoot><tr><td>Total</td><td class="r">${fmtChf(r.totalAmount)}</td></tr></tfoot>
+      </table>
+      <p class="muted" style="margin-top:28px">Zahlbar innert 30 Tagen. Vielen Dank.</p>
+      </body></html>`);
+    w.document.close(); w.focus(); setTimeout(() => w.print(), 300);
+  };
+
   const filtered = filterStatus ? records.filter(r => r.status === filterStatus) : records;
   const sum = (st: string) => records.filter(r => r.status === st).reduce((s, r) => s + (r.totalAmount || 0), 0);
 
@@ -135,6 +196,7 @@ export default function BillingPage() {
                 <th className="text-right py-3 px-4 eyebrow">Basis</th>
                 <th className="text-right py-3 px-4 eyebrow">Total</th>
                 <th className="text-left py-3 px-4 eyebrow">Status</th>
+                <th className="text-right py-3 px-4 eyebrow">Aktion</th>
               </tr></thead>
               <tbody className="divide-y divide-gray-100">
                 {filtered.map(r => (
@@ -145,7 +207,14 @@ export default function BillingPage() {
                     <td className="py-3 px-4 text-secondary-500">{fmtMonth(r.month)}</td>
                     <td className="py-3 px-4 text-right text-secondary-500 tabular-nums">{fmtChf(r.baseAmount)}</td>
                     <td className="py-3 px-4 text-right font-semibold text-secondary-900 tabular-nums">{fmtChf(r.totalAmount)}</td>
-                    <td className="py-3 px-4"><span className={STATUS_CHIP[r.status]}>{STATUS_LABEL[r.status]}</span></td>
+                    <td className="py-3 px-4">
+                      <select value={r.status} onChange={e => changeStatus(r.id, e.target.value)} className="input py-1.5 text-sm max-w-[10rem]">
+                        {['PENDING', 'PAID', 'OVERDUE', 'CANCELLED'].map(s => <option key={s} value={s}>{STATUS_LABEL[s]}</option>)}
+                      </select>
+                    </td>
+                    <td className="py-3 px-4 text-right">
+                      <button onClick={() => printInvoice(r)} className="btn btn-secondary btn-sm" title="Rechnung als PDF drucken">🖨️ PDF</button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -157,12 +226,15 @@ export default function BillingPage() {
               <div key={r.id} className="p-4 flex items-start gap-3">
                 <div className="avatar avatar-md">{childName(r).split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}</div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="font-semibold text-secondary-900 truncate">{childName(r)}</p>
-                    <span className={STATUS_CHIP[r.status]}>{STATUS_LABEL[r.status]}</span>
-                  </div>
+                  <p className="font-semibold text-secondary-900 truncate">{childName(r)}</p>
                   <p className="text-sm text-secondary-500">{fmtMonth(r.month)}</p>
                   <p className="font-semibold text-secondary-900 tabular-nums mt-1">{fmtChf(r.totalAmount)}</p>
+                  <div className="flex items-center gap-2 mt-2">
+                    <select value={r.status} onChange={e => changeStatus(r.id, e.target.value)} className="input py-1.5 text-sm flex-1">
+                      {['PENDING', 'PAID', 'OVERDUE', 'CANCELLED'].map(s => <option key={s} value={s}>{STATUS_LABEL[s]}</option>)}
+                    </select>
+                    <button onClick={() => printInvoice(r)} className="btn btn-secondary btn-sm shrink-0">🖨️ PDF</button>
+                  </div>
                 </div>
               </div>
             ))}
