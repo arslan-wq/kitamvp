@@ -50,6 +50,7 @@ export default function ActivitiesBoard({ childrenList, locations, initialActivi
 
   const [childFilter, setChildFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
+  const [locFilter, setLocFilter] = useState('all'); // 'all' | <locationId> | 'none'
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
 
@@ -67,9 +68,13 @@ export default function ActivitiesBoard({ childrenList, locations, initialActivi
   const [todayStatus, setTodayStatus] = useState<any | null>(null);
   const [showOpen, setShowOpen] = useState(true);
   const loadTodayStatus = async () => {
-    try { const r = await fetch('/api/activities/today-status'); if (r.ok) setTodayStatus(await r.json()); } catch { /* still */ }
+    try {
+      const qs = (locFilter !== 'all' && locFilter !== 'none') ? `?locationId=${locFilter}` : '';
+      const r = await fetch('/api/activities/today-status' + qs);
+      if (r.ok) setTodayStatus(await r.json());
+    } catch { /* still */ }
   };
-  useEffect(() => { loadTodayStatus(); }, []);
+  useEffect(() => { loadTodayStatus(); /* eslint-disable-next-line */ }, [locFilter]);
 
   // T5: bis zu 6 Fotos hochladen
   const MAX_PHOTOS = 6;
@@ -190,8 +195,9 @@ export default function ActivitiesBoard({ childrenList, locations, initialActivi
   const filtered = useMemo(() => activities.filter(a => {
     if (childFilter !== 'all' && a.childId !== childFilter) return false;
     if (typeFilter !== 'all' && a.type !== typeFilter) return false;
+    if (locFilter !== 'all' && (a.child?.locationId || 'none') !== locFilter) return false;
     return true;
-  }), [activities, childFilter, typeFilter]);
+  }), [activities, childFilter, typeFilter, locFilter]);
 
   // T4: Kanban zeigt nur den AKTUELLEN Tag (Datumsfilter gilt nur in der Zeitachse)
   const isToday = (ts: string) => new Date(ts).toDateString() === new Date().toDateString();
@@ -223,8 +229,10 @@ export default function ActivitiesBoard({ childrenList, locations, initialActivi
       const key = a.child?.locationId || '__none__';
       (map.get(key) || map.get('__none__'))!.items.push(a);
     }
-    return cols.filter(c => c.items.length > 0 || c.id !== '__none__');
-  }, [kanbanItems, locations]);
+    return cols
+      .filter(c => locFilter === 'all' || (locFilter === 'none' ? c.id === '__none__' : c.id === locFilter))
+      .filter(c => c.items.length > 0 || c.id !== '__none__');
+  }, [kanbanItems, locations, locFilter]);
 
   // Zeitachse nach Tag
   const groups = useMemo(() => {
@@ -283,6 +291,11 @@ export default function ActivitiesBoard({ childrenList, locations, initialActivi
             <button onClick={() => setView('kanban')} className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition ${view === 'kanban' ? 'bg-white shadow-sm text-secondary-900' : 'text-secondary-500'}`}>Kanban</button>
             <button onClick={() => setView('timeline')} className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition ${view === 'timeline' ? 'bg-white shadow-sm text-secondary-900' : 'text-secondary-500'}`}>Zeitachse</button>
           </div>
+          <select className="input max-w-[12rem]" value={locFilter} onChange={e => setLocFilter(e.target.value)}>
+            <option value="all">📍 Alle Standorte</option>
+            {locations.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+            <option value="none">Ohne Standort</option>
+          </select>
           <select className="input max-w-[11rem]" value={childFilter} onChange={e => setChildFilter(e.target.value)}>
             <option value="all">Alle Kinder</option>
             {childrenList.map(c => <option key={c.id} value={c.id}>{c.firstName} {c.lastName}</option>)}
