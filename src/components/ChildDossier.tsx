@@ -45,6 +45,7 @@ export default function ChildDossier({ child, activitiesBase, editable = false, 
   const [vaccinations, setVaccinations] = useState<any[]>(child.medicalRecord?.vaccinations || []);
   const [history, setHistory] = useState<any[]>(child.medicalRecord?.healthHistory || []);
   const [allergies, setAllergies] = useState<any[]>(child.allergies || []);
+  const [tab, setTab] = useState<'overview' | 'betreuung' | 'berichte' | 'medizin' | 'eltern'>('overview');
   const [vaccForm, setVaccForm] = useState<any>(null); // null = geschlossen
   const [histForm, setHistForm] = useState<any>(null);
   const [allergyForm, setAllergyForm] = useState<any>(null);
@@ -281,7 +282,18 @@ export default function ChildDossier({ child, activitiesBase, editable = false, 
 
   return (
     <div className="space-y-6">
+      {/* T5: Dossier-Tabs statt langer Liste */}
+      <div className="flex gap-1 border-b border-secondary-200 overflow-x-auto">
+        {([{ id: 'overview', l: '👤 Übersicht' }, { id: 'betreuung', l: '📅 Betreuung' }, { id: 'berichte', l: '📋 Berichte' }, { id: 'medizin', l: '🏥 Medizinisch' }, { id: 'eltern', l: '👪 Eltern' }] as const).map(t => (
+          <button key={t.id} onClick={() => setTab(t.id)}
+            className={`px-4 py-2.5 text-sm font-semibold rounded-t-xl border border-b-0 -mb-px whitespace-nowrap transition ${tab === t.id ? 'bg-white border-secondary-200 text-secondary-900' : 'bg-transparent border-transparent text-secondary-500 hover:text-secondary-700'}`}>
+            {t.l}
+          </button>
+        ))}
+      </div>
+
       {/* Stammdaten */}
+      {tab === 'overview' && (
       <section className="card p-6 sm:p-8">
         <div className="flex items-center justify-between mb-4 gap-3">
           <p className="eyebrow">👤 Stammdaten</p>
@@ -308,8 +320,16 @@ export default function ChildDossier({ child, activitiesBase, editable = false, 
           </div>
         )}
       </section>
+      )}
+
+      {/* Betreuung: Belegung + Rechnungen */}
+      {tab === 'betreuung' && <ChildTimeline childId={child.id} activitiesBase={activitiesBase} view="betreuung" />}
+
+      {/* Berichte: Tagesberichte + Aktivitäten */}
+      {tab === 'berichte' && <ChildTimeline childId={child.id} activitiesBase={activitiesBase} view="berichte" />}
 
       {/* Eltern & Kontakte */}
+      {tab === 'eltern' && (
       <section className="card p-6 sm:p-8">
         <p className="eyebrow mb-4">👪 Eltern & Notfallkontakte</p>
         {parentsState.length === 0 ? (
@@ -358,8 +378,10 @@ export default function ChildDossier({ child, activitiesBase, editable = false, 
           </div>
         )}
       </section>
+      )}
 
       {/* Medizinisches Dossier */}
+      {tab === 'medizin' && (
       <section className="card p-6 sm:p-8">
         <div className="flex items-center justify-between mb-4 gap-3">
           <p className="eyebrow">🏥 Medizinisches Dossier</p>
@@ -564,8 +586,10 @@ export default function ChildDossier({ child, activitiesBase, editable = false, 
           </div>
         )}
       </section>
+      )}
 
       {/* Allergien */}
+      {tab === 'medizin' && (
       <section className="card p-6 sm:p-8">
         <div className="flex items-center justify-between mb-4 gap-3">
           <p className="eyebrow">🚨 Allergien</p>
@@ -615,9 +639,10 @@ export default function ChildDossier({ child, activitiesBase, editable = false, 
           </div>
         )}
       </section>
+      )}
 
       {/* Verträge */}
-      {contracts.length > 0 && (
+      {tab === 'overview' && contracts.length > 0 && (
         <section className="card p-6 sm:p-8">
           <p className="eyebrow mb-4">📄 Verträge</p>
           <div className="space-y-2">
@@ -635,7 +660,7 @@ export default function ChildDossier({ child, activitiesBase, editable = false, 
       )}
 
       {/* Dokumente */}
-      {documents.length > 0 && (
+      {tab === 'overview' && documents.length > 0 && (
         <section className="card p-6 sm:p-8">
           <p className="eyebrow mb-4">🖼️ Dokumente & Fotos</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
@@ -651,7 +676,7 @@ export default function ChildDossier({ child, activitiesBase, editable = false, 
       )}
 
       {/* Anwesenheit (letzte) */}
-      {attendance.length > 0 && (
+      {tab === 'overview' && attendance.length > 0 && (
         <section className="card p-6 sm:p-8">
           <p className="eyebrow mb-4">🕐 Anwesenheit (zuletzt)</p>
           <div className="space-y-1.5">
@@ -669,8 +694,8 @@ export default function ChildDossier({ child, activitiesBase, editable = false, 
         </section>
       )}
 
-      {/* Belegungsplanung · Tagesberichte · Aktivitäten */}
-      <ChildTimeline childId={child.id} activitiesBase={activitiesBase} />
+      {/* Belegung/Rechnungen/Berichte/Aktivitäten sind nun in den Tabs
+          „Betreuung" und „Berichte" (oben) untergebracht. */}
     </div>
   );
 }

@@ -38,9 +38,13 @@ interface Props {
   childId: string;
   /** Aktivitäten-Endpunkt: '/api/activities' (Personal) oder '/api/parent/activities' (Eltern) */
   activitiesBase: string;
+  /** welche Abschnitte anzeigen: 'all' | 'betreuung' (Belegung+Rechnungen) | 'berichte' (Berichte+Aktivitäten) */
+  view?: 'all' | 'betreuung' | 'berichte';
 }
 
-export default function ChildTimeline({ childId, activitiesBase }: Props) {
+export default function ChildTimeline({ childId, activitiesBase, view = 'all' }: Props) {
+  const showBetreuung = view === 'all' || view === 'betreuung';
+  const showBerichte = view === 'all' || view === 'berichte';
   const [activities, setActivities] = useState<any[]>([]);
   const [reports, setReports] = useState<any[]>([]);
   const [bookings, setBookings] = useState<any[]>([]);
@@ -98,6 +102,7 @@ export default function ChildTimeline({ childId, activitiesBase }: Props) {
   return (
     <div className="space-y-6">
       {/* Belegungsplanung */}
+      {showBetreuung && (
       <section className="card p-6 sm:p-8">
         <p className="eyebrow mb-4">📅 Belegungsplanung</p>
         {bookings.length === 0 ? (
@@ -123,9 +128,10 @@ export default function ChildTimeline({ childId, activitiesBase }: Props) {
           </div>
         )}
       </section>
+      )}
 
       {/* T4: Rechnungen (nur Personal) */}
-      {isStaff && (
+      {isStaff && showBetreuung && (
         <section className="card p-6 sm:p-8">
           <p className="eyebrow mb-4">💳 Rechnungen</p>
           {invoices.length === 0 ? (
@@ -153,6 +159,7 @@ export default function ChildTimeline({ childId, activitiesBase }: Props) {
       )}
 
       {/* Tagesberichte */}
+      {showBerichte && (
       <section className="card p-6 sm:p-8">
         <p className="eyebrow mb-4">📋 Tagesberichte</p>
         {reportDays.length === 0 ? (
@@ -180,8 +187,10 @@ export default function ChildTimeline({ childId, activitiesBase }: Props) {
           </div>
         )}
       </section>
+      )}
 
       {/* Aktivitäten */}
+      {showBerichte && (
       <section className="card p-6 sm:p-8">
         <p className="eyebrow mb-4">📊 Aktivitäten</p>
         {activities.length === 0 ? (
@@ -208,6 +217,7 @@ export default function ChildTimeline({ childId, activitiesBase }: Props) {
           </div>
         )}
       </section>
+      )}
 
       {reportDetail && (
         <ReportDetailModal
