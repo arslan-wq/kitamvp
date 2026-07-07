@@ -57,6 +57,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
+    // Doppel-Rechnung verhindern: pro Kind & Monat nur eine Rechnung
+    const mStart = new Date(month); mStart.setDate(1); mStart.setHours(0, 0, 0, 0);
+    const mEnd = new Date(mStart); mEnd.setMonth(mEnd.getMonth() + 1);
+    const existing = await prisma.billingRecord.findFirst({
+      where: { childId, kitaId: user.kitaId!, month: { gte: mStart, lt: mEnd } },
+    });
+    if (existing) {
+      return NextResponse.json({ error: 'Für dieses Kind existiert in diesem Monat bereits eine Rechnung.', code: 'DUPLICATE', existingId: existing.id }, { status: 409 });
+    }
+
     const totalAmount = baseAmount + extraDaysCost - deductions;
 
     const invoice = await prisma.billingRecord.create({

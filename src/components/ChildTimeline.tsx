@@ -44,8 +44,10 @@ export default function ChildTimeline({ childId, activitiesBase }: Props) {
   const [activities, setActivities] = useState<any[]>([]);
   const [reports, setReports] = useState<any[]>([]);
   const [bookings, setBookings] = useState<any[]>([]);
+  const [invoices, setInvoices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [reportDetail, setReportDetail] = useState<any | null>(null);
+  const isStaff = activitiesBase === '/api/activities';
 
   useEffect(() => {
     if (!childId) return;
@@ -58,14 +60,16 @@ export default function ChildTimeline({ childId, activitiesBase }: Props) {
           return [];
         }
       };
-      const [acts, reps, books] = await Promise.all([
+      const [acts, reps, books, invs] = await Promise.all([
         safe(`${activitiesBase}?childId=${childId}`),
         safe(`/api/daily-reports?childId=${childId}`),
         safe(`/api/bookings`),
+        isStaff ? safe(`/api/children/${childId}/invoices`) : Promise.resolve([]),
       ]);
       setActivities(Array.isArray(acts) ? acts : []);
       setReports(Array.isArray(reps) ? reps : []);
       setBookings((Array.isArray(books) ? books : []).filter((b: any) => b.childId === childId));
+      setInvoices(Array.isArray(invs) ? invs : []);
       setLoading(false);
     })();
   }, [childId, activitiesBase]);
@@ -119,6 +123,34 @@ export default function ChildTimeline({ childId, activitiesBase }: Props) {
           </div>
         )}
       </section>
+
+      {/* T4: Rechnungen (nur Personal) */}
+      {isStaff && (
+        <section className="card p-6 sm:p-8">
+          <p className="eyebrow mb-4">💳 Rechnungen</p>
+          {invoices.length === 0 ? (
+            <p className="text-sm text-secondary-500">Noch keine Rechnungen.</p>
+          ) : (
+            <div className="space-y-2">
+              {invoices.map((inv) => {
+                const st = { PENDING: { l: 'Ausstehend', c: 'chip-warning' }, PAID: { l: 'Bezahlt', c: 'chip-success' }, OVERDUE: { l: 'Fällig', c: 'chip-error' }, CANCELLED: { l: 'Storniert', c: 'chip-neutral' } }[inv.status as string] || { l: inv.status, c: 'chip-neutral' };
+                return (
+                  <div key={inv.id} className="surface p-3 flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-secondary-900">{new Date(inv.month).toLocaleDateString('de-CH', { month: 'long', year: 'numeric' })}</p>
+                      <p className="text-xs text-secondary-500">Basis CHF {(inv.baseAmount || 0).toLocaleString('de-CH')}{inv.extraDaysCost ? ` · Zusatztage CHF ${inv.extraDaysCost.toLocaleString('de-CH')}` : ''}</p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="font-semibold text-secondary-900 tabular-nums">CHF {(inv.totalAmount || 0).toLocaleString('de-CH', { minimumFractionDigits: 2 })}</span>
+                      <span className={`chip ${st.c}`}>{st.l}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      )}
 
       {/* Tagesberichte */}
       <section className="card p-6 sm:p-8">

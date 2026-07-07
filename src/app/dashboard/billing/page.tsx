@@ -48,6 +48,13 @@ export default function BillingPage() {
   const [modalExtras, setModalExtras] = useState<{ date: string; parts: string[]; cost: number }[]>([]);
   const [detail, setDetail] = useState<BillingRecord | null>(null);
   const [detailExtras, setDetailExtras] = useState<{ date: string; parts: string[]; cost: number }[]>([]);
+  const [tab, setTab] = useState<'kommend' | 'current' | 'past' | 'created'>('current');
+  const [tabExtras, setTabExtras] = useState<any[]>([]); // bestätigte Zusatztage des Tab-Monats
+  const [bulkMsg, setBulkMsg] = useState('');
+
+  const shiftMonth = (delta: number) => { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() + delta); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; };
+  const tabMonth = tab === 'kommend' ? shiftMonth(1) : tab === 'past' ? shiftMonth(-1) : shiftMonth(0);
+  const tabMonthLabel = (() => { const [y, m] = tabMonth.split('-').map(Number); return new Date(y, m - 1, 1).toLocaleDateString('de-CH', { month: 'long', year: 'numeric' }); })();
 
   // Bestätigte Zusatztage eines Kindes in einem Monat (YYYY-MM) mit Kosten
   const fetchMonthExtras = async (childId: string, monthStr: string) => {
@@ -138,6 +145,64 @@ export default function BillingPage() {
     setDetailExtras(ex);
   };
 
+  // Zusatztage des Tab-Monats laden (für die Vorschau-Tabs)
+  useEffect(() => {
+    if (tab === 'created') { setTabExtras([]); return; }
+    let active = true;
+    (async () => {
+      try {
+        const res = await fetch(`/api/extra-days?month=${tabMonth}`);
+        const all = res.ok ? await res.json() : [];
+        if (active) setTabExtras(Array.isArray(all) ? all : []);
+      } catch { if (active) setTabExtras([]); }
+    })();
+    return () => { active = false; };
+    // eslint-disable-next-line
+  }, [tab, tabMonth]);
+
+  // Vorschau-Zeilen: je Kind mit Belegung (gewünschte Betreuungstage) ein Betrag
+  const previewRows = useMemo(() => {
+    return children
+      .filter(c => weekOccupancyPercent(c.desiredCareDays) > 0)
+      .map(c => {
+        const occ = weekOccupancyPercent(c.desiredCareDays);
+        const base = monthlyAmount(occ, c.location?.name, c.birthDate) ?? 0;
+        const ex = tabExtras.filter((e: any) => e.childId === c.id && e.status === 'APPROVED').map((e: any) => extraDayCost(e.parts));
+        const exCost = ex.reduce((s: number, v: number) => s + v, 0);
+        const existing = records.find(r => r.childId === c.id && monthKey(r.month) === tabMonth);
+        return { child: c, occ, base, exCount: ex.length, exCost, total: base + exCost, existing };
+      })
+      .sort((a, b) => `${a.child.firstName}${a.child.lastName}`.localeCompare(`${b.child.firstName}${b.child.lastName}`));
+  }, [children, tabExtras, records, tabMonth]);
+
+  const createInvoiceFor = async (childId: string, monthStr: string, baseAmount: number, exCount: number, exCost: number) => {
+    return fetch('/api/billing/invoices', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ childId, month: `${monthStr}-01`, baseAmount, extraDays: exCount, extraDaysCost: exCost, deductions: 0 }),
+    });
+  };
+
+  const createOne = async (row: any) => {
+    setBulkMsg('');
+    const res = await createInvoiceFor(row.child.id, tabMonth, row.base, row.exCount, row.exCost);
+    if (res.ok || res.status === 409) await load();
+    if (!res.ok && res.status !== 409) { const d = await res.json().catch(() => ({})); setBulkMsg(`❌ ${d.error || 'Fehler'}`); }
+  };
+
+  const createAllMissing = async () => {
+    const missing = previewRows.filter(r => !r.existing);
+    if (missing.length === 0) { setBulkMsg('Alle Rechnungen für diesen Monat sind bereits erstellt.'); return; }
+    if (!confirm(`${missing.length} Rechnung(en) für ${tabMonthLabel} erstellen?`)) return;
+    setBulkMsg('');
+    let created = 0, skipped = 0;
+    for (const r of missing) {
+      const res = await createInvoiceFor(r.child.id, tabMonth, r.base, r.exCount, r.exCost);
+      if (res.ok) created++; else if (res.status === 409) skipped++;
+    }
+    await load();
+    setBulkMsg(`✅ ${created} erstellt${skipped ? `, ${skipped} übersprungen (bereits vorhanden)` : ''}.`);
+  };
+
   // Status manuell ändern (Admin/Leitung)
   const changeStatus = async (id: string, newStatus: string) => {
     setRecords(rs => rs.map(r => r.id === id ? { ...r, status: newStatus as any } : r)); // optimistisch
@@ -191,7 +256,7 @@ export default function BillingPage() {
       @media print{img{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
       </style></head><body>
       <div class="head">
-        <div><h1>🍽️ KitaLuna</h1><div class="muted">${esc(loc)}</div></div>
+        <div><h1>KitaLuna</h1><div class="muted">${esc(loc)}</div></div>
         <img src="/brand/kitaluna-wordmark.svg" alt="KitaLuna" onerror="this.style.display='none'"/>
       </div>
       <div class="meta">
@@ -205,6 +270,12 @@ export default function BillingPage() {
         <tfoot><tr><td>Total</td><td class="r">${fmtChf(r.totalAmount)}</td></tr></tfoot>
       </table>
       <p class="muted" style="margin-top:28px">Zahlbar innert 30 Tagen. Vielen Dank.</p>
+      <div style="margin-top:18px;padding:12px 14px;border:1px solid #e5e7eb;border-radius:10px;background:#f7f9f7">
+        <div class="muted" style="margin-bottom:4px">Zahlung an</div>
+        <strong>KitaLuna</strong><br>
+        IBAN: <strong>CH93 0076 2011 6238 5295 7</strong><br>
+        <span class="muted">Zahlungszweck: Rechnung ${nr} · ${esc(childName(r))}</span>
+      </div>
       </body></html>`);
     w.document.close(); w.focus(); setTimeout(() => w.print(), 300);
   };
@@ -231,7 +302,64 @@ export default function BillingPage() {
         <div className="stat-card"><p className="stat-value text-green-600">{fmtChf(sum('PAID'))}</p><p className="stat-label">Bezahlt · {records.filter(r => r.status === 'PAID').length} Rechnungen</p></div>
       </div>
 
-      {/* Filter */}
+      {/* Tabs */}
+      <div className="flex gap-1 border-b border-secondary-200">
+        {([{ id: 'kommend', l: 'Kommend' }, { id: 'current', l: 'Dieser Monat' }, { id: 'past', l: 'Vergangen' }, { id: 'created', l: 'Erstellt' }] as const).map(t => (
+          <button key={t.id} onClick={() => { setTab(t.id); setBulkMsg(''); }}
+            className={`px-4 py-2.5 text-sm font-semibold rounded-t-xl border border-b-0 -mb-px transition ${tab === t.id ? 'bg-white border-secondary-200 text-secondary-900' : 'bg-transparent border-transparent text-secondary-500 hover:text-secondary-700'}`}>
+            {t.l}
+          </button>
+        ))}
+      </div>
+
+      {bulkMsg && <div className={`alert ${bulkMsg.startsWith('❌') ? 'alert-error' : 'alert-success'}`}>{bulkMsg}</div>}
+
+      {/* Vorschau-Tabs: Rechnungen für den Monat erstellen */}
+      {tab !== 'created' && (
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-secondary-500">Vorschau für <strong className="text-secondary-800">{tabMonthLabel}</strong> · {previewRows.length} Kind(er) mit Belegung · {previewRows.filter(r => !r.existing).length} offen</p>
+            <button onClick={createAllMissing} disabled={previewRows.every(r => r.existing)} className="btn btn-primary btn-sm">🧾 Alle erstellen</button>
+          </div>
+          {previewRows.length === 0 ? (
+            <div className="empty-state"><div className="empty-state-icon">🧾</div><p className="text-secondary-500">Keine Kinder mit hinterlegten Betreuungstagen.</p></div>
+          ) : (
+            <div className="card overflow-hidden overflow-x-auto">
+              <table className="w-full">
+                <thead><tr className="border-b border-gray-100 bg-gray-50">
+                  <th className="text-left py-3 px-4 eyebrow">Kind</th>
+                  <th className="text-right py-3 px-4 eyebrow">Belegung</th>
+                  <th className="text-right py-3 px-4 eyebrow">Grundbetrag</th>
+                  <th className="text-right py-3 px-4 eyebrow">Zusatztage</th>
+                  <th className="text-right py-3 px-4 eyebrow">Total</th>
+                  <th className="text-right py-3 px-4 eyebrow">Aktion</th>
+                </tr></thead>
+                <tbody className="divide-y divide-gray-100">
+                  {previewRows.map(r => (
+                    <tr key={r.child.id} className="hover:bg-gray-50">
+                      <td className="py-3 px-4 text-secondary-800">{r.child.firstName} {r.child.lastName}</td>
+                      <td className="py-3 px-4 text-right text-secondary-500 tabular-nums">{r.occ}%</td>
+                      <td className="py-3 px-4 text-right text-secondary-500 tabular-nums">{fmtChf(r.base)}</td>
+                      <td className="py-3 px-4 text-right text-secondary-500 tabular-nums">{r.exCount ? `${r.exCount} · ${fmtChf(r.exCost)}` : '—'}</td>
+                      <td className="py-3 px-4 text-right font-semibold text-secondary-900 tabular-nums">{fmtChf(r.total)}</td>
+                      <td className="py-3 px-4 text-right">
+                        {r.existing ? (
+                          <button onClick={() => openDetail(r.existing!)} className="btn btn-secondary btn-sm" title="Rechnung ansehen">✓ erstellt</button>
+                        ) : (
+                          <button onClick={() => createOne(r)} className="btn btn-primary btn-sm">Erstellen</button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* „Erstellt": Filter + Rechnungsliste (Status, PDF, Detail) */}
+      {tab === 'created' && (<>
       <div className="flex gap-2 flex-wrap">
         <button onClick={() => setFilterStatus('')} className={filterStatus === '' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}>Alle</button>
         {['PENDING', 'OVERDUE', 'PAID', 'CANCELLED'].map(s => (
@@ -298,6 +426,7 @@ export default function BillingPage() {
           </div>
         </div>
       )}
+      </>)}
 
       {/* Rechnung erstellen */}
       {showCreate && (
