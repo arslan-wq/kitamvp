@@ -109,12 +109,14 @@ export default function ChildForm({ initialData, isEditing = false, childId }: C
         throw new Error(data.error || 'Fehler beim Speichern');
       }
 
-      await response.json();
+      const data = await response.json();
 
       setSuccess(
         isEditing
           ? `Änderungen für "${formData.firstName}" gespeichert.`
-          : `Kind "${formData.firstName}" erstellt! Einladungs-Email wurde an ${formData.parentEmail} versendet.`
+          : data.invitationEmailAttempted && !data.invitationEmailSent
+            ? `Kind "${formData.firstName}" erstellt. ⚠️ Einladungs-Email an ${formData.parentEmail} konnte nicht gesendet werden${data.invitationEmailError ? ` (${data.invitationEmailError})` : ''}. Bitte über "Einladung senden" erneut versuchen.`
+            : `Kind "${formData.firstName}" erstellt! Einladungs-Email wurde an ${formData.parentEmail} versendet.`
       );
 
       setTimeout(() => {
