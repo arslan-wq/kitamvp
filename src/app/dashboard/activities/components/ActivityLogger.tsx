@@ -239,9 +239,16 @@ export default function ActivityLogger() {
           <button
             type="submit"
             disabled={submitting || !formData.childId}
-            className="btn btn-primary btn-lg px-8"
+            className="btn btn-primary btn-lg px-8 min-w-[160px] transition-colors disabled:opacity-100"
           >
-            {submitting ? '⏳ Speichert…' : '✅ Speichern'}
+            {submitting ? (
+              <>
+                <span className="animate-spin h-4 w-4 border-2 border-white/40 border-t-white rounded-full" />
+                Speichert…
+              </>
+            ) : (
+              '✅ Speichern'
+            )}
           </button>
         </div>
       </form>
@@ -438,9 +445,16 @@ function RecentActivities({
                       type="button"
                       onClick={() => saveEdit(activity.id)}
                       disabled={isBusy}
-                      className="btn btn-primary"
+                      className="btn btn-primary min-w-[110px] transition-colors disabled:opacity-100"
                     >
-                      {isBusy ? '⏳ Speichert...' : '💾 Speichern'}
+                      {isBusy ? (
+                        <>
+                          <span className="animate-spin h-4 w-4 border-2 border-white/40 border-t-white rounded-full" />
+                          Speichert...
+                        </>
+                      ) : (
+                        '💾 Speichern'
+                      )}
                     </button>
                     <button
                       type="button"
