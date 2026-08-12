@@ -151,15 +151,16 @@ export async function POST(request: NextRequest) {
 
     // Check if report exists for this date
     const reportDate = new Date(date);
-    reportDate.setHours(0, 0, 0, 0);
-    const nextDay = new Date(reportDate);
+    const dayStart = new Date(reportDate);
+    dayStart.setHours(0, 0, 0, 0);
+    const nextDay = new Date(dayStart);
     nextDay.setDate(nextDay.getDate() + 1);
 
     const existing = await prisma.dailyReport.findFirst({
       where: {
         childId,
         date: {
-          gte: reportDate,
+          gte: dayStart,
           lt: nextDay,
         },
       },
