@@ -1,10 +1,12 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import MonthPicker from '@/components/MonthPicker';
 
 const PART_LABELS: Record<string, string> = { VORMITTAG: 'Vormittag', MITTAGESSEN: 'Mittagessen', NACHMITTAG: 'Nachmittag' };
 const STATUS_LABELS: Record<string, string> = { REQUESTED: 'Angefragt', APPROVED: 'Bestätigt', REJECTED: 'Abgelehnt', CANCELLED: 'Storniert' };
 const monthStr = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; };
+const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 
 export default function ExtraDayExport() {
   const [month, setMonth] = useState(monthStr());
@@ -14,7 +16,10 @@ export default function ExtraDayExport() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
 
+  const isValidMonth = MONTH_RE.test(month);
+
   const load = useCallback(async () => {
+    if (!MONTH_RE.test(month)) { setRows([]); setLogs([]); setLoading(false); return; }
     setLoading(true);
     const [edRes, locRes, logRes] = await Promise.all([
       fetch(`/api/extra-days?month=${month}`),
@@ -33,6 +38,7 @@ export default function ExtraDayExport() {
   const locName = (id: string | null | undefined) => (id && locations[id]) || 'Ohne Standort';
 
   const download = async () => {
+    if (!isValidMonth) return;
     setBusy(true);
     try {
       // nach Standort, dann Datum sortieren
@@ -73,9 +79,9 @@ export default function ExtraDayExport() {
         <div className="flex items-end gap-2">
           <div>
             <label className="label">Monat</label>
-            <input type="month" className="input max-w-[12rem]" value={month} onChange={e => setMonth(e.target.value)} />
+            <MonthPicker value={month} onChange={setMonth} />
           </div>
-          <button onClick={download} disabled={busy || rows.length === 0} className="btn btn-primary whitespace-nowrap">
+          <button onClick={download} disabled={busy || !isValidMonth || rows.length === 0} className="btn btn-primary whitespace-nowrap">
             {busy ? 'Erstellt…' : '⬇️ Excel (CSV)'}
           </button>
         </div>
@@ -83,6 +89,8 @@ export default function ExtraDayExport() {
 
       {loading ? (
         <p className="text-sm text-secondary-400">Laden…</p>
+      ) : !isValidMonth ? (
+        <p className="text-sm text-red-600">Bitte einen gültigen Monat wählen.</p>
       ) : (
         <>
           <div className="flex flex-wrap gap-2 mb-3">

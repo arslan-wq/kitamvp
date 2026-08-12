@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { weekOccupancyPercent, monthlyAmount, fullMonthRate, extraDayCost, extraDayLabel, PART_WEIGHTS } from '@/lib/occupancy';
+import MonthPicker from '@/components/MonthPicker';
 
 const WD_LABEL: Record<number, string> = { 1: 'Mo', 2: 'Di', 3: 'Mi', 4: 'Do', 5: 'Fr' };
 const PART_LABEL: Record<string, string> = { VORMITTAG: 'Vormittag', MITTAGESSEN: 'Mittagessen', NACHMITTAG: 'Nachmittag' };
@@ -449,7 +450,7 @@ export default function BillingPage() {
               </div>
               <div>
                 <label className="label label-required">Monat</label>
-                <input type="month" className="input" value={form.month} onChange={e => setForm(f => ({ ...f, month: e.target.value }))} />
+                <MonthPicker value={form.month} onChange={m => setForm(f => ({ ...f, month: m }))} />
               </div>
             </div>
 
