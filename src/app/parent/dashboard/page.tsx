@@ -14,13 +14,29 @@ export default async function ParentDashboardPage() {
   // Check if user is a parent
   const parent = await prisma.parent.findUnique({
     where: { email: session.user.email },
-    include: {
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      email: true,
       children: {
-        include: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          birthDate: true,
+          kitaId: true,
           allergies: true,
           activities: {
             orderBy: { timestamp: 'desc' },
             take: 50,
+            select: {
+              id: true,
+              type: true,
+              timestamp: true,
+              details: true,
+              notes: true,
+            },
           },
         },
       },
