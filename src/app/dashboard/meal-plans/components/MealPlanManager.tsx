@@ -121,6 +121,9 @@ export default function MealPlanManager({ kitaId, canEdit = true }: { kitaId: st
   // Editor-Duplizieren (aktuelle Einträge → frei gewählte Zielwoche)
   const duplicate = async () => {
     if (!dupDate) { setMessageType('error'); setMessage('Bitte ein Datum der Zielwoche wählen.'); return; }
+    if (mondayOf(dupDate).toDateString() === mondayOf(weekDate).toDateString()) {
+      setMessageType('error'); setMessage('Zielwoche entspricht der aktuellen Woche — bitte eine andere Woche wählen.'); return;
+    }
     setIsLoading(true); setMessage('');
     try {
       const target = mondayOf(dupDate);
