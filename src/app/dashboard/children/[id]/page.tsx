@@ -48,6 +48,7 @@ export default function ChildDetailPage({ params }: { params: { id: string } }) 
       }
 
       router.push('/dashboard/children');
+      router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
       setIsDeleting(false);
