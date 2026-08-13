@@ -300,7 +300,16 @@ export default function DailyReportsTimeline({ childrenList, locations }: { chil
             <div><label className="label">Notizen</label><textarea className="input" rows={2} value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} /></div>
             <div className="flex justify-end gap-3 pt-2">
               <button type="button" onClick={() => setOpen(false)} className="btn btn-secondary">Abbrechen</button>
-              <button type="submit" disabled={saving} className="btn btn-primary px-6">{saving ? 'Speichert…' : 'Bericht speichern'}</button>
+              <button type="submit" disabled={saving} className="btn btn-primary px-6 min-w-[160px] transition-colors disabled:opacity-100">
+                {saving ? (
+                  <>
+                    <span className="animate-spin h-4 w-4 border-2 border-white/40 border-t-white rounded-full" />
+                    Speichert…
+                  </>
+                ) : (
+                  'Bericht speichern'
+                )}
+              </button>
             </div>
           </form>
         </div>
