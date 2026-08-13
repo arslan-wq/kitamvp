@@ -71,7 +71,12 @@ export async function POST(request: NextRequest) {
                         Math.random().toString(36).substring(2, 10).toUpperCase();
     const hashedPassword = await bcrypt.hash(tempPassword, 10);
 
+    let emailAttempted = false;
+    let emailSent = false;
+    let emailError: string | undefined;
+
     if (!parent) {
+      emailAttempted = true;
       parent = await prisma.parent.create({
         data: {
           email: parentEmail,
@@ -85,9 +90,11 @@ export async function POST(request: NextRequest) {
       // Send invitation email
       try {
         await sendParentInvitationEmail(parentEmail, firstName, tempPassword);
-      } catch (emailError) {
-        console.error('Failed to send email:', emailError);
-        // Don't fail the request if email fails
+        emailSent = true;
+      } catch (err) {
+        console.error('Failed to send email:', err);
+        emailError = err instanceof Error ? err.message : 'Versand fehlgeschlagen';
+        // Don't fail the child creation if the email fails, but report it back
       }
     }
 
@@ -114,7 +121,10 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    return NextResponse.json(child, { status: 201 });
+    return NextResponse.json(
+      { ...child, invitationEmailAttempted: emailAttempted, invitationEmailSent: emailSent, invitationEmailError: emailError },
+      { status: 201 }
+    );
   } catch (error) {
     console.error('Error creating child:', error);
     return NextResponse.json(

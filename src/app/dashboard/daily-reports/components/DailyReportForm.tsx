@@ -493,9 +493,16 @@ export default function DailyReportForm({ children }: DailyReportFormProps) {
         <button
           type="submit"
           disabled={isLoading}
-          className="btn btn-primary btn-lg px-8 disabled:opacity-50"
+          className="btn btn-primary btn-lg px-8 min-w-[220px] transition-colors disabled:opacity-100"
         >
-          {isLoading ? '⏳ wird gespeichert...' : '✅ Tagesbericht speichern'}
+          {isLoading ? (
+            <>
+              <span className="animate-spin h-4 w-4 border-2 border-white/40 border-t-white rounded-full" />
+              wird gespeichert...
+            </>
+          ) : (
+            '✅ Tagesbericht speichern'
+          )}
         </button>
       </div>
     </form>

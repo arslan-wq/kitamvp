@@ -77,6 +77,10 @@ export async function GET(request: NextRequest) {
   const month = sp.get('month');
   const status = sp.get('status');
 
+  if (month && !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
+    return NextResponse.json({ error: 'Ungültiger Monat, erwartet YYYY-MM' }, { status: 400 });
+  }
+
   const where: any = {};
   if (dateStr) { const d = dayStart(dateStr); const next = new Date(d); next.setDate(next.getDate() + 1); where.date = { gte: d, lt: next }; }
   else if (month) { const [y, m] = month.split('-').map(Number); const start = new Date(y, m - 1, 1); const end = new Date(y, m, 1); where.date = { gte: start, lt: end }; }
