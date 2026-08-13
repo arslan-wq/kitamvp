@@ -85,8 +85,8 @@ export default function ChildDetailPage({ params }: { params: { id: string } }) 
     );
   }
 
-  return (
-    <div className="space-y-6">
+  const header = (
+    <>
       <Link href="/dashboard/children" className="inline-flex items-center gap-1 text-sm text-secondary-500 hover:text-secondary-900 font-medium transition">
         ← Zurück zur Liste
       </Link>
@@ -126,9 +126,13 @@ export default function ChildDetailPage({ params }: { params: { id: string } }) 
           </button>
         </div>
       </div>
+    </>
+  );
 
+  return (
+    <div className="space-y-6">
       {/* Komplettes Dossier des Kindes */}
-      <ChildDossier child={child} activitiesBase="/api/activities" editable={isAdmin} isStaff />
+      <ChildDossier child={child} activitiesBase="/api/activities" editable={isAdmin} isStaff header={header} />
     </div>
   );
 }
