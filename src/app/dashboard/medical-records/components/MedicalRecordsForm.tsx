@@ -287,8 +287,10 @@ export default function MedicalRecordsForm({ children, kitaId }: MedicalRecordsF
                   type="tel"
                   placeholder="Telefon"
                   value={primaryDoctorPhone}
-                  onChange={e => setPrimaryDoctorPhone(e.target.value)}
+                  onChange={e => setPrimaryDoctorPhone(e.target.value.replace(/[^0-9+\s()-]/g, ''))}
                   className="input"
+                  pattern="\+?[0-9\s()-]{6,20}"
+                  title="Nur Ziffern, Leerzeichen, +, - und Klammern erlaubt (mind. 6 Ziffern)"
                 />
               </div>
               <div>
@@ -324,8 +326,10 @@ export default function MedicalRecordsForm({ children, kitaId }: MedicalRecordsF
                   type="tel"
                   placeholder="Telefon"
                   value={pediatricianPhone}
-                  onChange={e => setPediatricianPhone(e.target.value)}
+                  onChange={e => setPediatricianPhone(e.target.value.replace(/[^0-9+\s()-]/g, ''))}
                   className="input"
+                  pattern="\+?[0-9\s()-]{6,20}"
+                  title="Nur Ziffern, Leerzeichen, +, - und Klammern erlaubt (mind. 6 Ziffern)"
                 />
               </div>
               <div>
@@ -361,8 +365,10 @@ export default function MedicalRecordsForm({ children, kitaId }: MedicalRecordsF
                   type="tel"
                   placeholder="Telefon"
                   value={emergencyDoctorPhone}
-                  onChange={e => setEmergencyDoctorPhone(e.target.value)}
+                  onChange={e => setEmergencyDoctorPhone(e.target.value.replace(/[^0-9+\s()-]/g, ''))}
                   className="input"
+                  pattern="\+?[0-9\s()-]{6,20}"
+                  title="Nur Ziffern, Leerzeichen, +, - und Klammern erlaubt (mind. 6 Ziffern)"
                 />
               </div>
             </div>

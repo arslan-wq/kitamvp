@@ -3,6 +3,7 @@ import { authOptions } from '@/lib/auth';
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import crypto from 'crypto';
+import { isValidPhone } from '@/lib/validation';
 
 const MAX_LEN = 700_000; // ~500 KB Bild als Data-URL
 
@@ -76,7 +77,12 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     if (typeof body.firstName === 'string' && body.firstName.trim()) data.firstName = body.firstName.trim();
     if (typeof body.lastName === 'string' && body.lastName.trim()) data.lastName = body.lastName.trim();
     if (typeof body.email === 'string' && body.email.trim()) data.email = body.email.trim().toLowerCase();
-    if (typeof body.phone === 'string') data.phone = body.phone;
+    if (typeof body.phone === 'string') {
+      if (body.phone && !isValidPhone(body.phone)) {
+        return NextResponse.json({ error: 'Ungültige Telefonnummer' }, { status: 400 });
+      }
+      data.phone = body.phone;
+    }
     if (photo !== undefined) data.photoUrl = photo;
     // Archivieren / aus Archiv holen
     if (body.archive === true) data.archivedAt = new Date();

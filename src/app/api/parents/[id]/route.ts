@@ -2,6 +2,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { isValidPhone } from '@/lib/validation';
 
 // PUT /api/parents/[id] — Kontaktdaten eines Elternteils bearbeiten.
 // Erlaubt: der Elternteil selbst ODER Personal, das eine KiTA mit dessen Kind teilt.
@@ -30,6 +31,9 @@ export async function PUT(request: Request, { params }: { params: { id: string }
   }
 
   const { firstName, lastName, phone } = await request.json();
+  if (phone && !isValidPhone(phone)) {
+    return NextResponse.json({ error: 'Ungültige Telefonnummer' }, { status: 400 });
+  }
   const updated = await prisma.parent.update({
     where: { id: params.id },
     data: {

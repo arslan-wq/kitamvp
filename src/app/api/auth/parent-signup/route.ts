@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { hash } from 'bcryptjs';
 import { prisma } from '@/lib/db';
+import { isValidPhone } from '@/lib/validation';
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,6 +17,13 @@ export async function POST(request: NextRequest) {
     if (password.length < 8) {
       return NextResponse.json(
         { error: 'Passwort muss mindestens 8 Zeichen lang sein' },
+        { status: 400 }
+      );
+    }
+
+    if (phone && !isValidPhone(phone)) {
+      return NextResponse.json(
+        { error: 'Ungültige Telefonnummer' },
         { status: 400 }
       );
     }

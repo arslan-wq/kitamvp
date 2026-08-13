@@ -2,7 +2,10 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { resolveChildAccess } from '@/lib/childAccess';
+import { isValidPhone } from '@/lib/validation';
 import { NextRequest, NextResponse } from 'next/server';
+
+const PHONE_FIELDS = ['primaryDoctorPhone', 'pediatricianPhone', 'emergencyDoctorPhone'] as const;
 
 /**
  * GET /api/medical-records
@@ -80,6 +83,13 @@ export async function POST(request: NextRequest) {
 
     if (!childId) {
       return NextResponse.json({ error: 'Missing childId' }, { status: 400 });
+    }
+
+    for (const field of PHONE_FIELDS) {
+      const value = medicalData[field];
+      if (value && !isValidPhone(value)) {
+        return NextResponse.json({ error: 'Ungültige Telefonnummer' }, { status: 400 });
+      }
     }
 
     // Zugriff: Personal der KiTA ODER Elternteil des Kindes

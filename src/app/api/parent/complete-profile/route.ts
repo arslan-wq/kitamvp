@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import bcrypt from 'bcryptjs';
+import { isValidPhone } from '@/lib/validation';
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,6 +16,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Parent not found' },
         { status: 404 }
+      );
+    }
+
+    if (phone && !isValidPhone(phone)) {
+      return NextResponse.json(
+        { error: 'Ungültige Telefonnummer' },
+        { status: 400 }
       );
     }
 
