@@ -29,13 +29,15 @@ interface Props {
   isStaff?: boolean;
   /** E-Mail des aktuellen Betrachters (für Eltern: eigenen Kontakt bearbeiten) */
   viewerEmail?: string | null;
+  /** Optionaler Kopfbereich (Zurück-Link, Name, Aktionen), der zusammen mit den Tabs fixiert bleibt */
+  header?: React.ReactNode;
 }
 
 const toCsv = (a?: string[]) => (Array.isArray(a) ? a.join(', ') : '');
 const fromCsv = (s: string) => s.split(',').map(x => x.trim()).filter(Boolean);
 const dateInput = (s?: string | null) => (s ? new Date(s).toISOString().slice(0, 10) : '');
 
-export default function ChildDossier({ child, activitiesBase, editable = false, isStaff = false, viewerEmail = null }: Props) {
+export default function ChildDossier({ child, activitiesBase, editable = false, isStaff = false, viewerEmail = null, header }: Props) {
   const [mr, setMr] = useState<any>(child.medicalRecord);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -282,14 +284,18 @@ export default function ChildDossier({ child, activitiesBase, editable = false, 
 
   return (
     <div className="space-y-6">
-      {/* T5: Dossier-Tabs statt langer Liste */}
-      <div className="flex gap-1 border-b border-secondary-200 overflow-x-auto">
-        {([{ id: 'overview', l: '👤 Übersicht' }, { id: 'betreuung', l: '📅 Betreuung' }, { id: 'berichte', l: '📋 Berichte' }, { id: 'medizin', l: '🏥 Medizinisch' }, { id: 'eltern', l: '👪 Eltern' }] as const).map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)}
-            className={`px-4 py-2.5 text-sm font-semibold rounded-t-xl border border-b-0 -mb-px whitespace-nowrap transition ${tab === t.id ? 'bg-white border-secondary-200 text-secondary-900' : 'bg-transparent border-transparent text-secondary-500 hover:text-secondary-700'}`}>
-            {t.l}
-          </button>
-        ))}
+      {/* Kopfbereich + Tabs bleiben beim Scrollen unterhalb der Hauptnavigation fixiert */}
+      <div className="sticky top-16 z-30 bg-background space-y-4 pb-0">
+        {header}
+        {/* T5: Dossier-Tabs statt langer Liste */}
+        <div className="flex gap-1 border-b border-secondary-200 flex-wrap">
+          {([{ id: 'overview', l: '👤 Übersicht' }, { id: 'betreuung', l: '📅 Betreuung' }, { id: 'berichte', l: '📋 Berichte' }, { id: 'medizin', l: '🏥 Medizinisch' }, { id: 'eltern', l: '👪 Eltern' }] as const).map(t => (
+            <button key={t.id} onClick={() => setTab(t.id)}
+              className={`px-4 py-2.5 text-sm font-semibold rounded-t-xl border border-b-0 -mb-px whitespace-nowrap transition ${tab === t.id ? 'bg-white border-secondary-200 text-secondary-900' : 'bg-transparent border-transparent text-secondary-500 hover:text-secondary-700'}`}>
+              {t.l}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Stammdaten */}

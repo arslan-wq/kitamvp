@@ -29,7 +29,8 @@ function CompleteProfileInner() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    const cleaned = name === 'phone' ? value.replace(/[^0-9+\s()-]/g, '') : value;
+    setFormData((prev) => ({ ...prev, [name]: cleaned }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -157,6 +158,8 @@ function CompleteProfileInner() {
                 onChange={handleChange}
                 placeholder="+41 44 123 45 67"
                 className="input"
+                pattern="\+?[0-9\s()-]{6,20}"
+                title="Nur Ziffern, Leerzeichen, +, - und Klammern erlaubt (mind. 6 Ziffern)"
               />
             </div>
           </div>

@@ -2,6 +2,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
+import { isValidPhone } from '@/lib/validation';
 
 const MAX_LEN = 700_000; // ~500 KB Bild als Data-URL
 
@@ -54,7 +55,12 @@ export async function PATCH(request: NextRequest) {
     const data: any = {};
     if (typeof body.firstName === 'string' && body.firstName.trim()) data.firstName = body.firstName.trim();
     if (typeof body.lastName === 'string' && body.lastName.trim()) data.lastName = body.lastName.trim();
-    if (typeof body.phone === 'string') data.phone = body.phone;
+    if (typeof body.phone === 'string') {
+      if (body.phone && !isValidPhone(body.phone)) {
+        return NextResponse.json({ error: 'Ungültige Telefonnummer' }, { status: 400 });
+      }
+      data.phone = body.phone;
+    }
     if (body.photoUrl !== undefined) data.photoUrl = body.photoUrl;
     if (typeof body.emailNotifications === 'boolean') data.emailNotifications = body.emailNotifications; // T4
     const p = await prisma.parent.update({

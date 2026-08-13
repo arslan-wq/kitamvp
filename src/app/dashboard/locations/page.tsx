@@ -84,7 +84,8 @@ export default function LocationsPage() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    const cleaned = (name === 'phone' || name === 'emergencyPhone') ? value.replace(/[^0-9+\s()-]/g, '') : value;
+    setFormData(prev => ({ ...prev, [name]: cleaned }));
   };
 
   const emptyForm = { name: '', capacity: '', ageGroup: '', address: '', phone: '', email: '', emergencyPhone: '' };
@@ -281,7 +282,8 @@ export default function LocationsPage() {
               <div>
                 <label className="label">Telefon</label>
                 <input type="tel" name="phone" value={formData.phone} onChange={handleChange}
-                  className="input" placeholder="z.B. 044 123 45 67" />
+                  className="input" placeholder="z.B. 044 123 45 67"
+                  pattern="\+?[0-9\s()-]{6,20}" title="Nur Ziffern, Leerzeichen, +, - und Klammern erlaubt (mind. 6 Ziffern)" />
               </div>
               <div>
                 <label className="label">E-Mail</label>
@@ -291,7 +293,8 @@ export default function LocationsPage() {
               <div className="sm:col-span-2">
                 <label className="label">🚨 Notfallnummer</label>
                 <input type="tel" name="emergencyPhone" value={formData.emergencyPhone} onChange={handleChange}
-                  className="input" placeholder="z.B. 079 000 00 00" />
+                  className="input" placeholder="z.B. 079 000 00 00"
+                  pattern="\+?[0-9\s()-]{6,20}" title="Nur Ziffern, Leerzeichen, +, - und Klammern erlaubt (mind. 6 Ziffern)" />
               </div>
             </div>
           </div>

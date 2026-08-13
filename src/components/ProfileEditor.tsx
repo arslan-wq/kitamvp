@@ -170,7 +170,7 @@ export default function ProfileEditor() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div><label className="label label-required">Vorname</label><input className="input" value={firstName} onChange={(e) => setFirstName(e.target.value)} required /></div>
             <div><label className="label label-required">Nachname</label><input className="input" value={lastName} onChange={(e) => setLastName(e.target.value)} required /></div>
-            <div><label className="label">Telefon</label><input className="input" value={phone} onChange={(e) => setPhone(e.target.value)} /></div>
+            <div><label className="label">Telefon</label><input type="tel" className="input" value={phone} onChange={(e) => setPhone(e.target.value.replace(/[^0-9+\s()-]/g, ''))} pattern="\+?[0-9\s()-]{6,20}" title="Nur Ziffern, Leerzeichen, +, - und Klammern erlaubt (mind. 6 Ziffern)" /></div>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

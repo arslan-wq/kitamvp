@@ -255,7 +255,7 @@ export default function UsersPage() {
               <div><label className="label label-required">Vorname</label><input className="input" value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} required /></div>
               <div><label className="label label-required">Nachname</label><input className="input" value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} required /></div>
               <div><label className="label label-required">E-Mail</label><input type="email" className="input" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required /></div>
-              <div><label className="label">Telefon</label><input className="input" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
+              <div><label className="label">Telefon</label><input type="tel" className="input" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value.replace(/[^0-9+\s()-]/g, '') })} pattern="\+?[0-9\s()-]{6,20}" title="Nur Ziffern, Leerzeichen, +, - und Klammern erlaubt (mind. 6 Ziffern)" /></div>
             </div>
           )}
           <p className="help-text">Die Person erhält automatisch eine E-Mail, um ihr Passwort selbst festzulegen.</p>
@@ -381,7 +381,7 @@ export default function UsersPage() {
                 <div><label className="label label-required">Vorname</label><input className="input" value={editForm.firstName} onChange={(e) => setEditForm({ ...editForm, firstName: e.target.value })} required /></div>
                 <div><label className="label label-required">Nachname</label><input className="input" value={editForm.lastName} onChange={(e) => setEditForm({ ...editForm, lastName: e.target.value })} required /></div>
                 <div><label className="label label-required">E-Mail</label><input type="email" className="input" value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} required /></div>
-                <div><label className="label">Telefon</label><input className="input" value={editForm.phone} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} /></div>
+                <div><label className="label">Telefon</label><input type="tel" className="input" value={editForm.phone} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value.replace(/[^0-9+\s()-]/g, '') })} pattern="\+?[0-9\s()-]{6,20}" title="Nur Ziffern, Leerzeichen, +, - und Klammern erlaubt (mind. 6 Ziffern)" /></div>
               </div>
             )}
             <p className="help-text">Das Passwort kann nicht hier geändert werden — nutze „Reset" für eine Passwort-Mail.</p>

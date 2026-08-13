@@ -5,6 +5,7 @@ import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/db';
 import { sendPasswordResetEmail } from '@/lib/email';
+import { isValidPhone } from '@/lib/validation';
 
 const STAFF_ROLES = ['ADMIN', 'KITA_LEITER', 'BETREUER'];
 
@@ -119,6 +120,9 @@ export async function POST(request: Request) {
   if (type === 'parent') {
     const { firstName, lastName, phone } = body;
     if (!firstName || !lastName) return NextResponse.json({ error: 'Vor- und Nachname erforderlich' }, { status: 400 });
+    if (phone && !isValidPhone(phone)) {
+      return NextResponse.json({ error: 'Ungültige Telefonnummer' }, { status: 400 });
+    }
     const created = await prisma.parent.create({
       data: { email, firstName, lastName, phone: phone || '', password: tempPw, photoUrl },
     });
