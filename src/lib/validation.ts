@@ -1,4 +1,20 @@
 import { z } from 'zod';
+import { isValidPhoneNumber } from 'libphonenumber-js';
+
+// Telefonnummer wird über libphonenumber-js gegen echte Rufnummernpläne geprüft
+// (nicht nur Zeichensatz/Länge). Ohne "+"-Präfix wird Schweiz (CH) angenommen,
+// da die App primär für Schweizer KiTAs ist; internationale Nummern mit "+"
+// werden trotzdem korrekt erkannt.
+export function isValidPhone(phone: string): boolean {
+  const trimmed = phone.trim();
+  if (!trimmed) return false;
+  return isValidPhoneNumber(trimmed, trimmed.startsWith('+') ? undefined : 'CH');
+}
+
+const phoneSchema = z
+  .string()
+  .optional()
+  .refine((value) => !value || isValidPhone(value), 'Ungültige Telefonnummer');
 
 // Auth Schemas
 export const signUpSchema = z.object({
@@ -15,7 +31,7 @@ export const signInSchema = z.object({
 export const updateProfileSchema = z.object({
   name: z.string().min(2, 'Name ist erforderlich'),
   email: z.string().email('Ungültige E-Mail'),
-  phone: z.string().optional(),
+  phone: phoneSchema,
 });
 
 // Child Schemas
@@ -110,9 +126,9 @@ export const createLocationSchema = z.object({
   capacity: z.number().int().positive('Kapazität muss positiv sein'),
   ageGroup: z.string().optional(),
   address: z.string().optional(),
-  phone: z.string().optional(),
+  phone: phoneSchema,
   email: z.string().email('Ungültige E-Mail').optional().or(z.literal('')),
-  emergencyPhone: z.string().optional(),
+  emergencyPhone: phoneSchema,
   staff: z.array(z.string()).optional(),
   // Personal-Zuweisung mit Arbeitszeiten: [{ userId, workingHours }]
   staffAssignments: z.array(z.object({
