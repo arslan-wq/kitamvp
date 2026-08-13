@@ -157,12 +157,15 @@ export default function MealPlanManager({ kitaId, canEdit = true }: { kitaId: st
     const sunday = new Date(monday); sunday.setDate(sunday.getDate() + 4);
     const w = window.open('', '_blank', 'width=1000,height=800');
     if (!w) { setMessageType('error'); setMessage('Pop-up blockiert — bitte erlauben, um das PDF zu öffnen.'); return; }
-    const rows = mealsArg.map(m => `<tr>
-      <th>${esc(m.day)}</th>
-      <td>${esc(m.breakfast)}</td>
-      <td>${esc(m.lunch)}</td>
-      <td>${esc(m.snack)}</td>
-      <td>${esc(m.notes || '')}</td></tr>`).join('');
+    const dayHeaders = mealsArg.map(m => `<th>${esc(m.day)}</th>`).join('');
+    const mealRows = [
+      { label: '🥣 Frühstück', get: (m: MealPlanData) => m.breakfast },
+      { label: '🍽️ Mittagessen', get: (m: MealPlanData) => m.lunch },
+      { label: '🍎 Snack', get: (m: MealPlanData) => m.snack },
+      { label: 'Anmerkungen', get: (m: MealPlanData) => m.notes || '' },
+    ].map(row => `<tr>
+      <th>${row.label}</th>
+      ${mealsArg.map(m => `<td>${esc(row.get(m))}</td>`).join('')}</tr>`).join('');
     const allerg = allergenArg.length
       ? `<h3>Allergen-Hinweise</h3><ul>${allergenArg.map(a => `<li><strong>${esc(a.allergen)}</strong>${a.details ? ': ' + esc(a.details) : ''}</li>`).join('')}</ul>`
       : '';
@@ -187,8 +190,8 @@ export default function MealPlanManager({ kitaId, canEdit = true }: { kitaId: st
         <img src="/brand/kitaluna-wordmark.svg" alt="KitaLuna" onerror="this.style.display='none'"/>
       </div>
       <table>
-        <thead><tr><th>Tag</th><th>🥣 Frühstück</th><th>🍽️ Mittagessen</th><th>🍎 Snack</th><th>Anmerkungen</th></tr></thead>
-        <tbody>${rows}</tbody>
+        <thead><tr><th></th>${dayHeaders}</tr></thead>
+        <tbody>${mealRows}</tbody>
       </table>
       ${allerg}
       </body></html>`);
