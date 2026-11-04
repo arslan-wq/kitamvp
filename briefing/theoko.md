@@ -4,6 +4,7 @@ Gemeinsames Briefing für das Agenten-Team, das den Webshop von Theoko SKIN (Kor
 Regel: Was hier mit OFFEN markiert ist, ist unbekannt und darf nicht erfunden werden.
 
 ## 1. Produkt
+- Modelle/Grössen: 4 Grössen, siehe Shop auf www.theoko.ch. Namen und Masse OFFEN (Website war aus dem Arbeitsumfeld nicht erreichbar)
 ## 2. Preise & Marge
 ## 3. USPs
 ## 4. Zielmärkte & Sprachen
